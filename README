@@ -1,0 +1,47 @@
+ACORNS-ADI 
+Algorithms for Calibration, Optimized Registration and Nulling the
+Star in Angular Differential Imaging
+
+To install and run, simply extract the directory and run
+./acorns-adi.py 
+or 
+python acorns-adi.py .
+Follow the on-screen instructions to set up the parameters and 
+reduce your data.  Please e-mail tbrandt@astro.princeton.edu with
+bugs or incompatibilities.
+
+You can also add the installation directory to your path and 
+run acorns-adi.py from anywhere.
+
+I do not currently have documentation other than a paper 
+describing the algorithms (Brandt, McElwain, Turner, et al., 2012).
+
+I have tried to adequately comment the code.
+
+System Requirements:  Linux or Mac.  
+
+Software Requirements: 
+- python 2.7 (NOT python 3, which has different syntax!)
+- scipy 0.9+ (http://scipy.org/Download)
+- numpy 1.5+ (http://scipy.org/Download)
+- pyephem (http://rhodesmill.org/pyephem/)
+- pyfits (http://www.stsci.edu/institute/software_hardware/pyfits/)
+- pylab (part of matplotlib, http://matplotlib.sourceforge.net/)
+
+All of the above are free and open-source.  They should all be 
+available with pip (Python Package Index).
+
+Also, you need sufficient RAM to store a dataset in memory.
+Typically, this means at least ~8 GB to reduce a dataset of ~200
+HiCIAO frames.  It is possible to avoid this requirement, but it is
+difficult and would require a lot of I/O, for LOCI, to destripe,
+dewarp, compute centroids, and even to average the data.  NOT
+recommended, unless you have no choice.  As an alternative, you can
+set the dimensionality of the recentered data to be smaller and only
+perform LOCI on this smaller dataset (which would then fit in RAM).
+
+
+Tim Brandt
+tbrandt@astro.princeton.edu
+Princeton University
+August 2012
