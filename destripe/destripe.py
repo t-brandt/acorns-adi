@@ -18,7 +18,8 @@ from scipy.signal import medfilt2d
 from destripe_utils import *
 
 def destripe(frame, flat, hotpix, write_files, output_dir, bias_only,
-             clean=True, storeall=True, r_ex=0, extraclean=True):
+             clean=True, storeall=True, r_ex=0, extraclean=True,
+             full_destripe=True, do_horiz=True):
 
     """
     Function destripe takes two arguments:
@@ -52,8 +53,11 @@ def destripe(frame, flat, hotpix, write_files, output_dir, bias_only,
         try:
             ncoadd = header['COADD']
         except:
-            ncoadd = 1
-        flux = fluxfits[0].data.astype(np.float32)
+            try:
+                ncoadd = header['COADDS']
+            except:
+                ncoadd = 1
+        flux = fluxfits[-1].data.astype(np.float32)
         dimy, dimx = flux.shape
         if hotpix is not None:
             flux[hotpix] = np.nan
@@ -66,45 +70,49 @@ def destripe(frame, flat, hotpix, write_files, output_dir, bias_only,
     # the best estimate of the vertical pattern, 0.87 in my tests.
     ##############################################################
 
-    if bias_only:
-        sub_coef = 0.87
-    else:
-        sub_coef = 1
-
-    try:
-        for stripe in range(32):      
-            horizontal(flux, stripe)
-    except:
-        print "Horizontal destriping failed on frame " + frame
-        exit()
+    if do_horiz:
+        try:
+            for stripe in range(32):      
+                horizontal(flux, stripe)
+        except:
+            print "Horizontal destriping failed on frame " + frame
+            exit()
             
     ##############################################################
     # Calculate and subtract the vertical pattern.
     ##############################################################
 
-    try:
+    if full_destripe:
         if bias_only:
-            oddstripe = verticalref(flux, 1)
-            evenstripe = oddstripe[::-1, :]
+            sub_coef = 0.87
         else:
-            oddstripe, evenstripe = verticalmed(flux, flat, r_ex=r_ex)
-    except:
-        print "Vertical destriping failed on frame " + frame
-        exit()
+            sub_coef = 1
+            
+        try:
+            if bias_only:
+                oddstripe = verticalref(flux, 1)
+                evenstripe = oddstripe[::-1, :]
+            else:
+                oddstripe, evenstripe = verticalmed(flux, flat, r_ex=r_ex)
+        except:
+            print "Vertical destriping failed on frame " + frame
+            #exit()
         
-    for i in range(1, 33, 2):
-        flux[64 * i:64 * i + 64] -= oddstripe * sub_coef
-        flux[64 * i - 64:64 * i] -= evenstripe * sub_coef
+        for i in range(1, 33, 2):
+            flux[64 * i:64 * i + 64] -= oddstripe * sub_coef
+            flux[64 * i - 64:64 * i] -= evenstripe * sub_coef
 
     ##############################################################
     # Four rows on each edge are reference pixels--don't
     # flatfield them
     ##############################################################
 
-    flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
+        flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
 
-    np.putmask(flux, flux < -1000, 0)
-    np.putmask(flux, flux > 5e4 * ncoadd, np.nan)
+        np.putmask(flux, flux < -1000, 0)
+        np.putmask(flux, flux > 5e4 * ncoadd, np.nan)
+    else:
+        flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
 
     try:
         if clean:
@@ -128,7 +136,7 @@ def destripe(frame, flat, hotpix, write_files, output_dir, bias_only,
                 # 3.5 * sqrt(2*ln(2)) ~= 4.1 sigma.
                 #############################################################
                 
-                mask = fluxresid > 3.5 * sigval
+                mask = fluxresid > 4.5 * sigval
                 mask[:10] = 0
                 mask[-10:] = 0
                 mask[:, :10] = 0
@@ -137,7 +145,7 @@ def destripe(frame, flat, hotpix, write_files, output_dir, bias_only,
                 np.putmask(flux, mask, np.nan)
                 np.putmask(flux, np.isinf(flux), np.nan)
                 
-            interpbadpix(flux)
+            interpbadpix(flux, n=6)
     except:
         print "Cleaning bad pixels failed on frame " + frame
         sys.exit(1)
@@ -155,7 +163,7 @@ def destripe(frame, flat, hotpix, write_files, output_dir, bias_only,
             fluxout.append(flux_hdu)
     
             outname = re.sub(".fits", "_ds.fits", frame)
-            outname = re.sub(".*HICA", output_dir + "/" + "HICA", outname)
+            outname = re.sub(".*/", output_dir + "/", outname)
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')
                 fluxout.writeto(outname, clobber=True)

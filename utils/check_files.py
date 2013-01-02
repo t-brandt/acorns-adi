@@ -23,7 +23,7 @@ def check_files(filesetup, ext=""):
 
     filethere = numpy.ndarray(len(filesetup.framelist), numpy.bool)
     filethere[:] = False
-    refshape = pyfits.open(filesetup.framelist[0])[0].data.shape
+    refshape = pyfits.open(filesetup.framelist[0])[-1].data.shape
 
     for i in range(len(filesetup.framelist)):
         frame = filesetup.framelist[i]

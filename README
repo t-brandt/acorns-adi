@@ -8,7 +8,11 @@ or
 python acorns-adi.py .
 Follow the on-screen instructions to set up the parameters and 
 reduce your data.  Please e-mail tbrandt@astro.princeton.edu with
-bugs or incompatibilities.
+bugs or incompatibilities.  To use with data from an instrument 
+other than HiCIAO, add the command line option prefix to match
+file names from other instruments.  E.g., for Gemini North data
+from 2006, you may use
+acorns-adi.py --prefix="N2006"
 
 You can also add the installation directory to your path and 
 run acorns-adi.py from anywhere.

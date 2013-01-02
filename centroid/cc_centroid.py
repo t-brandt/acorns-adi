@@ -20,7 +20,7 @@ import sys
 def errorfunc(p, y, x, chi2):
     return chi2 - (p[0] + p[1] * (y - p[3])**2 + p[2] * (x - p[4])**2)
 
-def cc_centroid(refimage, image=None, frame=None):
+def cc_centroid(refimage, image=None, frame=None, usemask=True):
 
     """
     function cc_centroid(refimage, image=None, frame=None)
@@ -145,11 +145,12 @@ def cc_centroid(refimage, image=None, frame=None):
 
     baddata = np.all([image[imax-di:imax+di, jmax-di:jmax+di] < 0.2 * sat,
                       r_im < 2 * dr_rms], axis=0)
-    
-    np.putmask(mask[imax - di:imax + di, jmax - di:jmax + di], 
-               r_im < 1.5 * dr_rms, 0)
-    np.putmask(mask[imax - di:imax + di, jmax - di:jmax + di], 
-               baddata, 0)
+
+    if usemask:
+        np.putmask(mask[imax - di:imax + di, jmax - di:jmax + di], 
+                   r_im < 1.5 * dr_rms, 0)
+        np.putmask(mask[imax - di:imax + di, jmax - di:jmax + di], 
+                   baddata, 0)
     refimage2 = np.reshape(refimage, (nref, -1))
 
     sub_istd = np.ndarray(refimage2.shape)

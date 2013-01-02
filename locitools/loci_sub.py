@@ -164,7 +164,7 @@ def loci_sub(annulus_opt, annulus_sub, pa, minsep, r0, pcaopt=None,
                             if submat is not None:
                                 sub = submat[optframes[:]]
                                 y = all_y[optframes[:]]
-                                sub_coefs = linalg.lstsq(A.T, sub)[0]
+                                sub_coef = linalg.lstsq(A.T, sub)[0]
                     
                 elif method == 'lstsq':
                     A = fluxopt[opt_ref[:]]

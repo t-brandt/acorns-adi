@@ -170,7 +170,7 @@ def loci(flux, pa, locipar, mem, mode='LOCI', fluxref=None,
     
     r_avg = 0.5 * (r1 + r2)
     phi = 0.5 * (theta1 + theta2)
-    dphi = minsep * 1.6 / r_avg
+    dphi = minsep * 2. / r_avg
     if do_partial_sub:
         np.putmask(dphi, dphi < np.std(pa), np.std(pa))
 
@@ -181,7 +181,7 @@ def loci(flux, pa, locipar, mem, mode='LOCI', fluxref=None,
         
         n = 7
         x, y = np.meshgrid(np.arange(2 * n + 1) - n, np.arange(2 * n + 1) - n)
-        r_sq_psf = (x**2 + y**2) * 1.
+        r_sq_psf = (x**2 + y**2 + 0.) / (locipar.fwhm / 2)**2
         dy, dx = [oldshape[1] // 2 + 0.5, oldshape[2] // 2 + 0.5]
 
         xp0 = (-r_avg * np.cos(phi) + dx).astype(int) - n
@@ -272,11 +272,12 @@ def loci(flux, pa, locipar, mem, mode='LOCI', fluxref=None,
                 n = r_sq_psf.shape[0]
                 
                 sig = np.sort([2.5, (dphi[j] * r_avg[j] / 3), 4])[1]
-                psf = np.exp(-r_sq_psf / 10) + 0.05 * np.exp(-r_sq_psf / 30)
-                psf1 = np.exp(-r_sq_psf / (2 * sig**2))
-                psf2 = np.exp(-r_sq_psf / (2 * 2 * sig**2))
-                psf1 *= np.sum(psf) / np.sum(psf1) / 3
-                psf2 *= np.sum(psf) / np.sum(psf2) / 6
+                sig /= locipar.fwhm / 2.
+                psf = np.exp(-r_sq_psf) + 0.05 * np.exp(-r_sq_psf / 3.)
+                psf1 = np.exp(-r_sq_psf / (2. * sig**2))
+                psf2 = np.exp(-r_sq_psf / (2. * 2 * sig**2))
+                psf1 *= np.sum(psf) / np.sum(psf1) / 3.
+                psf2 *= np.sum(psf) / np.sum(psf2) / 6.
                 
                 sub_arr_full[yp0[j]:yp0[j] + n, xp0[j]:xp0[j] + n] += psf
                 sub_arr_full[yp1[j]:yp1[j] + n, xp1[j]:xp1[j] + n] -= psf1

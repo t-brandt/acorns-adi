@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 from easygui import *
 import glob
 import os
@@ -28,42 +30,98 @@ def choosefiles(msg="Choose the Raw Files to Use from the Following List.",
                if os.path.isfile(frame)]
     n = len(nocoadd)
     if n == 0:
-        msgbox("Error:  full files (HICA[0-9]*.fits) not found.\n" + 
+        msgbox("Error:  full files (" + prefix + "*.fits) not found.\n" + 
                "Full files contain header information necessary for\n" + 
                "the ADI data reduction.  Please use a directory with\n" +
                "full files.\n")
         sys.exit(1)
 
-    headerlist = [pyfits.open(frame)[0].header for frame in nocoadd]
-    objlist = [header['OBJECT'] for header in headerlist]
-    maskid = [header['P_FLID'] for header in headerlist]
-    dateid = [header['DATE-OBS'] for header in headerlist]
-    exp1time = [header['EXP1TIME'] for header in headerlist]
-    exptime = [header['EXPTIME'] for header in headerlist]
-    coadd = [header['COADD'] for header in headerlist]
-    filtid = [header['FILTER01'] for header in headerlist]
-    ndfilt = [header['FILTER02'] for header in headerlist]
-    modeid = [header['P_FMID'] for header in headerlist]
-    dimen = [''.join([str(header['NAXIS' + str(i + 1)]) + 'x'
-                      for i in range(header['NAXIS'])])
-             for header in headerlist]
-    
-    header = "\n\n\n" + "-" * 250 + "\nFrame ID" + " " * 27 + \
+    if 'HICA' in filelist[0]:   
+        headerlist = [pyfits.open(frame)[0].header for frame in nocoadd]
+        objlist = [header['OBJECT'] for header in headerlist]
+        maskid = [header['P_FLID'] for header in headerlist]
+        dateid = [header['DATE-OBS'] for header in headerlist]
+        exp1time = [header['EXP1TIME'] for header in headerlist]
+        exptime = [header['EXPTIME'] for header in headerlist]
+        coadd = [header['COADD'] for header in headerlist]
+        filtid = [header['FILTER01'] for header in headerlist]
+        ndfilt = [header['FILTER02'] for header in headerlist]
+        modeid = [header['P_FMID'] for header in headerlist]
+        dimen = [''.join([str(header['NAXIS' + str(i + 1)]) + 'x'
+                          for i in range(header['NAXIS'])])
+                 for header in headerlist]
+        
+        header = "\n\n\n" + "-" * 250 + "\nFrame ID" + " " * 27 + \
         "Object          Date                   Mode    " + \
         "Mask              Filter    ND Filter    Exp Time      " + \
         "N Coadd    T/Coadd        Dimensions\n" + "-" * 250
-    fulllist = [shortlist[i] + '          ' + 
-                objlist[i] + '          ' + 
-                dateid[i] + '         ' + 
-                modeid[i] + '         ' + 
-                maskid[i] + '         ' + 
-                filtid[i] + '         ' + 
-                ndfilt[i] + '         ' + 
-                ('%.2f s        ' % exptime[i]) +
-                ('%d              ' % coadd[i]) + 
-                ('%.2f s        ' % exp1time[i]) + 
-                dimen[i][:-1]
-                for i in range(n)]
+        fulllist = [shortlist[i] + '          ' + 
+                    objlist[i] + '          ' + 
+                    dateid[i] + '         ' + 
+                    modeid[i] + '         ' + 
+                    maskid[i] + '         ' + 
+                    filtid[i] + '         ' + 
+                    ndfilt[i] + '         ' + 
+                    ('%.2f s        ' % exptime[i]) +
+                    ('%d              ' % coadd[i]) + 
+                    ('%.2f s        ' % exp1time[i]) + 
+                    dimen[i][:-1]
+                    for i in range(n)]
+    else:
+        try:
+            headerlist = [pyfits.open(frame)[0].header for frame in nocoadd]
+            header1list = [pyfits.open(frame)[-1].header for frame in nocoadd]
+            objlist = [header['OBJECT'] for header in headerlist]
+            dateid = [header['DATE-OBS'] for header in headerlist]
+            exptime = [header['EXPTIME'] for header in headerlist]
+            coadd = [header['COADDS'] for header in headerlist]
+            filtid = [header['FILTER1'] for header in headerlist]
+            ndfilt = [header['FILTER2'] for header in headerlist]
+            dimen = [''.join([str(header['NAXIS' + str(i + 1)]) + 'x'
+                              for i in range(header['NAXIS'])])
+                     for header in header1list]
+            
+            header = "\n\n\n" + "-" * 250 + "\nFrame ID" + " " * 27 + \
+                     "Object            Date                   " + \
+                     "Filter 1                  Filter 2                    " + \
+                     "Exp Time      N Coadd    Dimensions\n" + "-" * 250
+            fulllist = [shortlist[i] + '          ' + 
+                        objlist[i] + '          ' + 
+                        dateid[i] + '         ' + 
+                        filtid[i] + '         ' + 
+                        ndfilt[i] + '         ' + 
+                        ('%.2f s        ' % exptime[i]) +
+                        ('%d              ' % coadd[i]) +
+                        dimen[i][:-1]
+                        for i in range(n)]
+        except:
+            try:
+                headerlist = [pyfits.open(frame)[0].header for frame in nocoadd]
+                header1list = [pyfits.open(frame)[-1].header for frame in nocoadd]
+                objlist = [header['OBJECT'] for header in headerlist]
+                dateid = [header['DATE-OBS'] for header in headerlist]
+                exptime = [header['EXPTIME'] for header in headerlist]
+                dimen = [''.join([str(header['NAXIS' + str(i + 1)]) + 'x'
+                                  for i in range(header['NAXIS'])])
+                         for header in header1list]
+                
+                header = "\n\n\n" + "-" * 250 + "\nFrame ID" + " " * 27 + \
+                         "Object            Date                   " + \
+                         "Exp Time      Dimensions\n" + "-" * 250
+                fulllist = [shortlist[i] + '          ' + 
+                            objlist[i] + '          ' + 
+                            dateid[i] + '         ' + 
+                            ('%.2f s        ' % exptime[i]) +
+                            dimen[i][:-1]
+                            for i in range(n)]
+            except:
+                header1list = [pyfits.open(frame)[-1].header for frame in nocoadd]
+                header = "\n\n\n" + "-" * 250 + "\nFrame ID" + " " * 27 + \
+                         "Dimensions\n" + "-" * 250
+                fulllist = [shortlist[i] + '          ' +
+                            dimen[i][:-1]
+                            for i in range(n)]
+        
     
     while 1:
         usefiles = multchoicebox(msg=msg + header, title=title, 
@@ -101,7 +159,7 @@ class FileSetup(object):
 
     """
     
-    def __init__(self, oldval=None): 
+    def __init__(self, oldval=None, prefix="HICA"): 
 
         default = None
         if 'data_dir' in dir(oldval):
@@ -117,36 +175,25 @@ class FileSetup(object):
         files_ok = False
         while not files_ok:
             self.coadd = False
-            if len(glob.glob(self.data_dir + "/HICA*-C[0-9].fits")) > 0:
+            if len(glob.glob(self.data_dir + "/" + prefix + "*-C[0-9].fits")) > 0:
                 self.coadd = ynbox(msg="Will you be using individual coadd " +
                                   "components?\nIf unsure, answer 'No'.")
             if self.coadd:
                 # We just tested for the coadded files' existence.
                 self.framelist = glob.glob(self.data_dir + 
-                                            "/HICA*-C[0-9].fits")
+                                            "/" + prefix + "*-C[0-9].fits")
                 for i in range(2, 5):
-                    self.framelist += glob.glob(self.data_dir + "/HICA*-C" + 
-                                                "[0-9]" * i + ".fits")
-                #if ccbox(msg="I found " + str(len(self.framelist)) + 
-                #         " coadd files.", title="Success"):
-                #    files_ok = True
+                    self.framelist += glob.glob(self.data_dir + "/" + prefix +
+                                                "*-C" + "[0-9]" * i + ".fits")
                 usefiles = choosefiles(data_dir=self.data_dir, 
                                        filelist=self.framelist)
                 if usefiles != None:
                     self.framelist = usefiles
                     files_ok = True
             else:
-                self.framelist = glob.glob(self.data_dir + "/HICA" + 
-                                           "[0-9]" * 8 + ".fits")
+                self.framelist = glob.glob(self.data_dir + "/" + prefix + 
+                                           "*[0-9].fits")
                 if len(self.framelist) > 0:
-                    #if ccbox(msg="I found " + str(len(self.framelist)) + 
-                    #         " files.", title="Success"):
-                    #files_ok = True
-                    #print multchoicebox(msg="Pick the files",
-                    #                         title="Select Files",
-                    #                         choices=self.framelist)
-                    #print [re.sub(self.data_dir + "/", "", frame)
-                    #       for frame in self.framelist]
                     usefiles = choosefiles(data_dir=self.data_dir, 
                                            filelist=self.framelist)
                     if usefiles != None:
@@ -167,17 +214,11 @@ class FileSetup(object):
                                          title="Raw Data Directory",
                                          default=default)
           
-        #default = None
-        #if 'reduce_dir' in dir(oldval):
-        #    default = oldval.reduce_dir
         default = self.data_dir
         self.reduce_dir = pick_dir(msg="Next, select a directory to hold " +
                                    "intermediate files.",
                                    title="Intermediate File Directory",
                                    default=default)
-        #default = None
-        #if 'output_dir' in dir(oldval):
-        #    default = oldval.output_dir
         default = self.reduce_dir
         self.output_dir = pick_dir(msg="Finally, select a directory for " +
                                    "the final data products.",
@@ -212,7 +253,33 @@ class FileSetup(object):
                 if boolbox(msg="Are you sure you don't want to mask hot pixels?",
                          title="Confirm Decision"):
                     break
-            
+
+        self.scale_phot = ccbox("Would you like to scale the final contrast.\n" +
+                     "curves to the central star's flux using unsaturated.\n" +
+                     "photometric reference frames?\n",
+                     title="Scale Contrast Curves?", 
+                     choices=["Yes", "No"])
+        if self.scale_phot:
+            files_ok = False
+            while not files_ok:
+                self.phot_dir = pick_dir(msg="Select the directory " +
+                                         "with photometric reference frames.",
+                                         title="Photometric Reference Frames",
+                                         default=self.data_dir)
+                self.photlist = glob.glob(self.phot_dir + "/" + prefix + "*.fits")
+                if len(self.photlist) > 0:
+                    usefiles = choosefiles(data_dir=self.phot_dir, 
+                                           filelist=self.photlist)
+                    if usefiles != None:
+                        self.photlist = usefiles
+                        files_ok = True
+                    else:
+                        if not ccbox(msg="I couldn't find any matching files.",
+                                     title="Error",
+                                     choices=["Retry", "Do Not Scale Contrast"]):
+                            self.scale_phot = False
+                            files_ok = True
+        
         msgbox("Finished setting up files and paths.")
             
     def display(self):

@@ -15,7 +15,8 @@ from centroid import *
 import multiprocessing
 from parallel import *
 
-def _cc_centroid(framelist, flux=None, psf_dir='psfref'):
+def _cc_centroid(framelist, flux=None, refimage=None, psf_dir='psfref',
+                 usemask=True):
 
     """
     Function _centroid reads in the reference PSF components and then
@@ -35,12 +36,13 @@ def _cc_centroid(framelist, flux=None, psf_dir='psfref'):
     ####################################################################
     # Read in reference data
     ####################################################################
-    
-    im = pyf.open(psf_dir + '/pcacomp_0.fits')[0].data
-    refimage = np.ndarray((3, im.shape[0], im.shape[1]))
-    refimage[0] = im
-    refimage[1] = pyf.open(psf_dir + '/pcacomp_1.fits')[0].data
-    refimage[2] = pyf.open(psf_dir + '/pcacomp_2.fits')[0].data
+
+    if refimage is None:
+        im = pyf.open(psf_dir + '/pcacomp_0.fits')[0].data
+        refimage = np.ndarray((3, im.shape[0], im.shape[1]))
+        refimage[0] = im
+        refimage[1] = pyf.open(psf_dir + '/pcacomp_1.fits')[0].data
+        refimage[2] = pyf.open(psf_dir + '/pcacomp_2.fits')[0].data
     
     ######################################################################
     # Set up ncpus workers, one for each thread.
@@ -60,9 +62,11 @@ def _cc_centroid(framelist, flux=None, psf_dir='psfref'):
 
     for i in range(nframes):
         if flux is not None:
-            tasks.put(Task(i, cc_centroid, (refimage, flux[i], framelist[i])))
+            tasks.put(Task(i, cc_centroid, (refimage, flux[i], framelist[i],
+                                            usemask)))
         else:
-            tasks.put(Task(i, cc_centroid, (refimage, flux, framelist[i])))
+            tasks.put(Task(i, cc_centroid, (refimage, flux, framelist[i],
+                                            usemask)))
     for i in range(ncpus):
         tasks.put(None)
 

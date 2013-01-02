@@ -35,7 +35,7 @@ def distortion_interp_frame(frame, y, x, storeall=True, output_dir="."):
     
         try:
             outname = re.sub(".fits", "_dw.fits", frame)
-            outname = re.sub(".*HICA", output_dir + "/" + "HICA", outname)
+            outname = re.sub(".*/", output_dir + "/", outname)
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')
                 fluxout.writeto(outname, clobber=True)

@@ -78,7 +78,7 @@ def rotate_recenter(frame, flux, center=None, theta=0, newdimen=None,
         header = pyf.open(frame)[0].header
         flux_hdu = pyf.PrimaryHDU(flux, header)
         fluxout.append(flux_hdu)
-        outname = re.sub(".*HICA", output_dir + "/HICA", frame)
+        outname = re.sub(".*/", output_dir + "/", frame)
         outname = re.sub(".fits", "_r.fits", outname)
         try:
             with warnings.catch_warnings():

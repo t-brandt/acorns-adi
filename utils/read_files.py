@@ -36,9 +36,9 @@ def read_files(filesetup, ext="", newdimen=None):
         newfile2 = re.sub(".*HICA", filesetup.reduce_dir + "/HICA", newfile1)
 
         if os.path.isfile(newfile2):
-            framedata = pyf.open(newfile2)[0].data
+            framedata = pyf.open(newfile2)[-1].data
         elif os.path.isfile(newfile1):
-            framedata = pyf.open(newfile1)[0].data
+            framedata = pyf.open(newfile1)[-1].data
         else:
             print "Error: failed to read data from " + frame + "."
             sys.exit(1)

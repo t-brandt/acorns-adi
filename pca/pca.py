@@ -34,7 +34,7 @@ def pca(flux, ncomp=5, nread=0, dosub=True, pcadir='.'):
     noise = np.std(flux, axis=0) + 0.1
     dimy, dimx = oldshape[1], oldshape[2]
     x, y = np.meshgrid(np.arange(dimy) - dimy // 2, np.arange(dimx) - dimx // 2)
-    noise += 1e5 * (x**2 + y**2 < 15**2)
+    #noise += 1e5 * (x**2 + y**2 < 15**2)
     noise = np.reshape(noise, -1)
     
     flux = np.reshape(flux, (nframes, -1))
@@ -42,7 +42,7 @@ def pca(flux, ncomp=5, nread=0, dosub=True, pcadir='.'):
     # First step: subtract the mean
     
     meanflux = np.mean(flux, axis=0)
-    np.putmask(noise, meanflux > 3e4, 3e4)
+    #np.putmask(noise, meanflux > 3e4, 3e4)
     for i in range(nframes):
         flux[i] -= meanflux
         flux[i] /= noise

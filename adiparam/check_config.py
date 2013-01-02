@@ -8,7 +8,7 @@ from filesetup import FileSetup
 import pickle
 
 def GetConfig(dirfile='./dirinfo', adifile='./adipar', locifile='./locipar',
-              verify=True):
+              verify=True, prefix='HICA'):
     
     if not isfile(dirfile) and isfile(adifile) and isfile(locifile):
         if not ccbox(msg="The ADI Data Reduction Pipeline is not " + 
@@ -19,7 +19,7 @@ def GetConfig(dirfile='./dirinfo', adifile='./adipar', locifile='./locipar',
     if isfile(dirfile):
         filesetup = pickle.load(open(dirfile, 'r'))
     else:
-        filesetup = FileSetup()
+        filesetup = FileSetup(prefix=prefix)
         pickle.dump(filesetup, open(dirfile, 'w'))
     if isfile(adifile):
         adipar = pickle.load(open(adifile, 'r'))
@@ -50,7 +50,7 @@ def GetConfig(dirfile='./dirinfo', adifile='./adipar', locifile='./locipar',
             if not boolbox(msg="Would you like to keep the current " +
                            "configuration?", title="Keep Configuration?",
                            choices=["Yes", "No, Reconfigure"]):
-                filesetup = FileSetup(filesetup)
+                filesetup = FileSetup(filesetup, prefix=prefix)
                 pickle.dump(filesetup, open(dirfile, 'w'))
         elif choice == "ADI Parameters":
             adipar.display()

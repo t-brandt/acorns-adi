@@ -27,6 +27,7 @@ import utils
 import pickle
 import addsource
 import locitools
+import photometry
 
 def main():
 
@@ -41,8 +42,13 @@ def main():
     installed to use this pipeline.
     """
 
+    parser = optparse.OptionParser(usage=__doc__)
+    parser.add_option("-p", "--prefix", dest="prefix", default="HICA",
+                      help="Specify raw file name prefix (default=%default)")
+    opts, args = parser.parse_args()
+
     exec_path = os.path.dirname(os.path.realpath(__file__))
-    filesetup, adipar, locipar = GetConfig()
+    filesetup, adipar, locipar = GetConfig(prefix=opts.prefix)
 
     nframes = len(filesetup.framelist)
     flat = pyf.open(filesetup.flat)
@@ -51,18 +57,38 @@ def main():
     else:
         hotpix = None
 
-    dimy, dimx = pyf.open(filesetup.framelist[0])[0].data.shape
+    dimy, dimx = pyf.open(filesetup.framelist[0])[-1].data.shape
     mem, ncpus, storeall = utils.config(nframes, dimy * dimx)
-    pa = np.asarray([transform.get_pa(frame) * -1 * np.pi / 180
-                     for frame in filesetup.framelist])
-    
+
+    ################################################################
+    # WCS coordinates are not reliable in HiCIAO data with the image
+    # rotator off.  Compute parallactic angle.  Otherwise, trust the
+    # WCS coordinates.
+    ################################################################
+
+    if 'HICA' in filesetup.framelist[0]:
+        pa = np.asarray([transform.get_pa(frame) * -1 * np.pi / 180
+                         for frame in filesetup.framelist])
+    else:
+        pa = np.ones(len(filesetup.framelist))
+        for i in range(len(filesetup.framelist)):
+            cd2_1 = pyf.open(filesetup.framelist[i])[0].header['cd2_1']
+            cd2_2 = pyf.open(filesetup.framelist[i])[0].header['cd2_2']
+            pa[i] = -np.arctan2(cd2_1, cd2_2)
+            
     fullframe = re.sub("-C.*fits", ".fits", filesetup.framelist[0])
-    objname = pyf.open(fullframe)[0].header['OBJECT']
+    try:
+        objname = pyf.open(fullframe)[0].header['OBJECT']
+    except:
+        objname = "Unknown_Object"
+    objname = re.sub(' ', '_', objname)
     np.savetxt(filesetup.output_dir + '/' + objname + '_palist.dat', pa)
     dr_rms = None
 
     ####################################################################
     # Default save/resume points: destriping, recentering, final files
+    # Configuration gives the option to skip the destriping step (only
+    # performing a flat-field), the dewarping, and the centering.
     ####################################################################
     
     if np.all(utils.check_files(filesetup, ext="_r")):
@@ -73,63 +99,66 @@ def main():
             flux = utils.read_files(filesetup, ext="_ds")
         else:
             flux = parallel._destripe(filesetup, flat, hotpix, mem, adipar,
-                                      write_files=True, storeall=storeall)
-        flux = parallel._dewarp(filesetup, mem, flux=flux, storeall=storeall)
+                                      write_files=True, storeall=storeall,
+                                      full_destripe=adipar.full_destripe,
+                                      do_horiz=adipar.full_destripe)
+        if adipar.dewarp:
+            flux = parallel._dewarp(filesetup, mem, flux=flux, storeall=storeall)
+
+        if adipar.do_centroid:
 
         ####################################################################
         # Main centroiding algorithm, discussed in Brandt+ 2012
         # Centroid a map of chi2 residuals after subtracting PCA components
         # The success array is false where the algorithm fails.
         ####################################################################
+         
+            if adipar.center == 'crosscorr':
+                success, centers, dr_rms = parallel._cc_centroid(filesetup.framelist, flux, psf_dir=exec_path + '/psfref')
         
-        if adipar.center == 'crosscorr':
-            success, centers, dr_rms = parallel._cc_centroid(filesetup.framelist, flux, psf_dir=exec_path + '/psfref')
-        
-            igood = np.extract(success, np.arange(nframes))
-            for i in np.arange(nframes - 1, -1, -1):
-                if not success[i]:
-                    del filesetup.framelist[i]
-            pickle.dump(filesetup, open('./dirinfo', 'w'))
-            centers = centers[igood]
-            pa = pa[igood]
-            nframes = len(igood)
-            if flux is not None:
-                flux = flux[igood]
-
+                igood = np.extract(success, np.arange(nframes))
+                for i in np.arange(nframes - 1, -1, -1):
+                    if not success[i]:
+                        del filesetup.framelist[i]
+                pickle.dump(filesetup, open('./dirinfo', 'w'))
+                centers = centers[igood]
+                pa = pa[igood]
+                nframes = len(igood)
+                if flux is not None:
+                    flux = flux[igood]
+                    
         ####################################################################
         # Backup centroiding algorithm: fit a Moffat profile
         ####################################################################
         
-        else:
-            centers = centroid.fit_centroids(filesetup, flux, method='moffat')
+            else:
+                centers = centroid.fit_centroids(filesetup, flux, method='moffat')
             
-        np.savetxt(filesetup.output_dir + '/' + objname + '_centers.dat',
-                       centers)
-
         ####################################################################
         # Interactively set the absolute centroid.  
         ####################################################################
 
-        mask_id = pyf.open(fullframe)[0].header['P_FMID']
-        fluxcen = parallel._rotate_recenter(filesetup, flux, storeall=True,
-                                            centers=centers, newdimen=201,
-                                            write_files=False)
-        fluxcen = np.sum(fluxcen, axis=0)
-        yc, xc = centroid.finecenter(fluxcen, objname, filesetup.output_dir)
-        centers[:, 0] += yc
-        centers[:, 1] += xc
+            fluxcen = parallel._rotate_recenter(filesetup, flux, storeall=True,
+                                                centers=centers, newdimen=201,
+                                                write_files=False)
+            fluxcen = np.median(fluxcen, axis=0)
+            yc, xc = centroid.finecenter(fluxcen, objname, filesetup.output_dir)
+            centers[:, 0] += yc
+            centers[:, 1] += xc
+            np.savetxt(filesetup.output_dir + '/' + objname + '_centers.dat',
+                       centers)
 
         ####################################################################
         # Recenter the data onto a square array of the largest dimension
         # such that the entire array has data
         ####################################################################
 
-        mindim = min(dimy - centers[:, 0].max(), centers[:, 0].min(),
-                     dimx - centers[:, 1].max(), centers[:, 1].min())
-        mindim = int(mindim) * 2 - 1
-        flux = parallel._rotate_recenter(filesetup, flux, storeall=storeall,
-                                         centers=centers, newdimen=mindim,
-                                         write_files=True)
+            mindim = min(dimy - centers[:, 0].max(), centers[:, 0].min(),
+                         dimx - centers[:, 1].max(), centers[:, 1].min())
+            mindim = int(mindim) * 2 - 1
+            flux = parallel._rotate_recenter(filesetup, flux, storeall=storeall,
+                                             centers=centers, newdimen=mindim,
+                                             write_files=True)
 
     ####################################################################
     # Perform scaled PCA on the flux array; alternatively, read in an
@@ -274,68 +303,71 @@ def main():
     flux = parallel._rotate_recenter(filesetup, flux, theta=pa)        
     fluxbest, noise = combine.meanmed(flux)
     
+    ####################################################################
+    # Rescale all arrays to 2001x2001 so that the center is pixel number
+    # (1000, 1000) indexed from 0.  Use NaN to pad arrays.
+    ####################################################################
+
+    fluxbest = utils.arr_resize(fluxbest)
+    if partial_sub is not None:
+        partial_sub = utils.arr_resize(partial_sub, newdim=fluxbest.shape[0]).astype(np.float32)
+        fluxbest /= partial_sub
+        
     x, y = np.meshgrid(np.arange(7) - 3, np.arange(7) - 3)
     window = (x**2 + y**2 < 2.51**2) * 1.0
     window /= np.sum(window)
     fluxbest = signal.convolve2d(fluxbest, window, mode='same')
     noise = combine.radprof(fluxbest, mode='std', smoothwidth=2, sigrej=4.5)[0]
-    
-    np.putmask(fluxbest, r < dr_rms + 3, np.nan)
+
+    r = utils.arr_resize(r)
+    if dr_rms is not None:
+        np.putmask(fluxbest, r < dr_rms + 3, np.nan)
     np.putmask(fluxbest, r > locipar.rmax - 2, np.nan)
     
-    np.savetxt(filesetup.output_dir + '/' + objname + '_noiseprofile.dat',
-               noise[noise.shape[0] // 2, noise.shape[1] // 2:].T)
     fluxsnr = (fluxbest / noise).astype(np.float32)
 
     ####################################################################
     # 5-sigma sensitivity maps--just multiply by the scaled aperture
     # photometry of the central star
     ####################################################################
-
-    if partial_sub is not None:
-        sensitivity = np.ones(fluxsnr.shape, np.float32)
-        dx = (sensitivity.shape[0] - partial_sub.shape[0]) // 2
-        if dx > 0:
-            sensitivity[dx:-dx, dx:-dx] = 1 / partial_sub
-        else:
-            sensitivity[:] = 1 / partial_sub
-        sensitivity *= noise * 5
-        
-    ####################################################################
-    # Write the output fits files.  Rescale all arrays to 2001x2001
-    # so that the center is pixel number (1000, 1000) indexed from 0.
-    # Use NaN to pad arrays.
-    ####################################################################
-
-    dimy, dimx = fluxbest.shape
     
-    if dimy > 2001:
-        di = (dimy - 2001) // 2
-        snr = pyf.HDUList(pyf.PrimaryHDU(fluxsnr[di:-di, di:-di], newhead))
-        final = pyf.HDUList(pyf.PrimaryHDU(fluxbest[di:-di, di:-di].astype(np.float32), newhead))
-        if partial_sub is not None:
-            contrast = pyf.HDUList(pyf.PrimaryHDU(sensitivity[di:-di, di:-di],
-                                                  newhead))
-    elif dimy < 2001:
-        di = (2001 - dimy) // 2
-        snr_pad = np.zeros((2001, 2001), np.float32) + np.nan
-        fluxbest_pad = np.zeros((2001, 2001), np.float32) + np.nan
-        contrast_pad = np.zeros((2001, 2001), np.float32) + np.nan
+    if partial_sub is not None:
+        sensitivity = noise * 5 / partial_sub
 
-        snr_pad[di:-di, di:-di] = fluxsnr
-        fluxbest_pad[di:-di, di:-di] = fluxbest
+        ####################################################################
+        # Photometry of the central star
+        ####################################################################
+
+        if filesetup.scale_phot:
+            ref_phot = photometry.calc_phot(filesetup, adipar, flat,
+                                                hotpix, mem, window)
+            sensitivity /= ref_phot
+            fluxbest /= ref_phot
+            noise /= ref_phot
         
-        snr = pyf.HDUList(pyf.PrimaryHDU(snr_pad, newhead))
-        final = pyf.HDUList(pyf.PrimaryHDU(fluxbest_pad, newhead))
-
-        if partial_sub is not None:
-            contrast_pad[di:-di, di:-di] = sensitivity
-            contrast = pyf.HDUList(pyf.PrimaryHDU(contrast_pad, newhead))
+        sig_sens = combine.radprof(sensitivity, mode='std', smoothwidth=0)[0]
+        outfile = open(filesetup.output_dir + '/' + objname +
+                       '_5sigma_sensitivity.dat', 'w')
+        for i in range(sig_sens.shape[0] // 2, sig_sens.shape[0]):
+            iy = sig_sens.shape[0] // 2
+            if np.isfinite(sensitivity[iy, i]):
+                outfile.write('%8d  %12.5e  %12.5e  %12e\n' %
+                              (i - iy, sensitivity[iy, i], sig_sens[iy, i],
+                               partial_sub[iy, i]))
+        outfile.close()
+        
     else:
-        snr = pyf.HDUList(pyf.PrimaryHDU(fluxsnr, newhead))
-        final = pyf.HDUList(pyf.PrimaryHDU(fluxbest.astype(np.float32), newhead))
-        if partial_sub is not None:
-            contrast = pyf.HDUList(pyf.PrimaryHDU(sensitivity, newhead))
+        np.savetxt(filesetup.output_dir + '/' + objname + '_noiseprofile.dat',
+                   noise[noise.shape[0] // 2, noise.shape[1] // 2:].T)
+            
+    ####################################################################
+    # Write the output fits files. 
+    ####################################################################
+
+    snr = pyf.HDUList(pyf.PrimaryHDU(fluxsnr, newhead))
+    final = pyf.HDUList(pyf.PrimaryHDU(fluxbest, newhead))
+    if partial_sub is not None:
+        contrast = pyf.HDUList(pyf.PrimaryHDU(sensitivity, newhead))
 
     name_base = filesetup.output_dir + '/' + objname
     snr.writeto(name_base + '_snr.fits', clobber=True)

@@ -16,6 +16,7 @@ import pyfits as pyf
 import math
 import ephem
 import re
+import string
 
 def format_time(t):
     h, m, s = string.split(t, ':')
@@ -24,7 +25,7 @@ def format_time(t):
         h += 24
     return h + m / 60 + s / 3600
 
-def get_pa(frame, lat = 19.825556):
+def get_pa(frame, lat=19.825556):
 
     """
     Function get_pa takes one argument:

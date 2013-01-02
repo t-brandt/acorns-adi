@@ -9,7 +9,7 @@
 # Summary:  Interactively refine the centroid of an image sequence
 # 
 
-from speckle_centroid import speckle_centroid
+#from speckle_centroid import speckle_centroid
 from easygui import *
 from pylab import *
 import pyfits as pyf
@@ -45,8 +45,9 @@ def finecenter(flux, objname, output_dir):
     ################################################################
 
     dimy, dimx = flux.shape
-    y, x = speckle_centroid('', flux, center=[dimy // 2, dimx // 2])
-
+    #y, x = speckle_centroid('', flux, center=[dimy // 2, dimx // 2])
+    y, x = [dimy // 2, dimx // 2]
+    
     dimy, dimx = flux.shape
     di = min(40, dimy // 2 - 1, dimx // 2 - 1)
     subarr = flux[dimy // 2 - di:dimy // 2 + di + 1,
