@@ -8,9 +8,6 @@
 # 
 # Summary:  Reduce HiCIAO ADI Data
 # 
-"""
-%prog [options]
-"""
 
 import optparse, sys, re, os
 import pyfits as pyf

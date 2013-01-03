@@ -1,2 +1,5 @@
 # ignore compiled python files
 *.pyc
+
+# automatic backups, particularly from emacs
+*~

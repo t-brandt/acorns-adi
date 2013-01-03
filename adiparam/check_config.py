@@ -46,27 +46,41 @@ def GetConfig(dirfile='./dirinfo', adifile='./adipar', locifile='./locipar',
                                     "ADI Parameters", "LOCI Parameters", 
                                     "Exit"])
         if choice == "File Setup":
-            filesetup.display()
-            if not boolbox(msg="Would you like to keep the current " +
-                           "configuration?", title="Keep Configuration?",
-                           choices=["Yes", "No, Reconfigure"]):
+            try:
+                filesetup.display()
+                if not boolbox(msg="Would you like to keep the current " +
+                               "configuration?", title="Keep Configuration?",
+                               choices=["Yes", "No, Reconfigure"]):
+                    filesetup = FileSetup(filesetup, prefix=prefix)
+                    pickle.dump(filesetup, open(dirfile, 'w'))
+            except:
                 filesetup = FileSetup(filesetup, prefix=prefix)
                 pickle.dump(filesetup, open(dirfile, 'w'))
+                
         elif choice == "ADI Parameters":
-            adipar.display()
-            if not boolbox(msg="Would you like to keep the current " +
-                           "configuration?", title="Keep Configuration?",
-                           choices=["Yes", "No, Reconfigure"]):
+            try:
+                adipar.display()
+                if not boolbox(msg="Would you like to keep the current " +
+                               "configuration?", title="Keep Configuration?",
+                               choices=["Yes", "No, Reconfigure"]):
+                    adipar = ADIparam()
+                    pickle.dump(adipar, open(adifile, 'w'))
+            except:
                 adipar = ADIparam()
                 pickle.dump(adipar, open(adifile, 'w'))
             
         elif choice == "LOCI Parameters":
-            locipar.display()
-            if not boolbox(msg="Would you like to keep the current " +
-                           "configuration?", title="Keep Configuration?",
-                           choices=["Yes", "No, Reconfigure"]):
-                locipar = LOCIparam()
-                pickle.dump(locipar, open(locifile, 'w'))
+            try:
+                locipar.display()
+                if not boolbox(msg="Would you like to keep the current " +
+                               "configuration?", title="Keep Configuration?",
+                               choices=["Yes", "No, Reconfigure"]):
+                    locipar = LOCIparam()
+                    pickle.dump(locipar, open(locifile, 'w'))
+            except:
+                    locipar = LOCIparam()
+                    pickle.dump(locipar, open(locifile, 'w'))
+                
         elif choice == "Exit":
             sys.exit(1)
                 
