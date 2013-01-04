@@ -16,7 +16,7 @@ import multiprocessing
 from parallel import *
 
 def _cc_centroid(framelist, flux=None, refimage=None, psf_dir='psfref',
-                 usemask=True):
+                 usemask=True, side=None):
 
     """
     Function _centroid reads in the reference PSF components and then
@@ -63,10 +63,10 @@ def _cc_centroid(framelist, flux=None, refimage=None, psf_dir='psfref',
     for i in range(nframes):
         if flux is not None:
             tasks.put(Task(i, cc_centroid, (refimage, flux[i], framelist[i],
-                                            usemask)))
+                                            usemask, side)))
         else:
             tasks.put(Task(i, cc_centroid, (refimage, flux, framelist[i],
-                                            usemask)))
+                                            usemask, side)))
     for i in range(ncpus):
         tasks.put(None)
 

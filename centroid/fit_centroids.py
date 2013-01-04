@@ -11,15 +11,17 @@
 # 
 
 import numpy as np
+import re, pickle
+import pyfits as pyf
 import parallel
+import centroid
 
-def fit_centroids(filesetup, flux, method='moffat', storeall=True):
+def fit_centroids(filesetup, flux, pa, method='moffat', storeall=True,
+                  objname='Unknown_Object', psf_dir='psfref', side=None):
 
     """
-    Function fit_centroids runs the centeroflight centroiding routine
-    in parallel on a list of HiCIAO frames and fits the unsaturated
-    frames to the model delta alpha \propto tan(alpha), where alpha
-    is the zenith angle and is retrieved from the fits headers.
+    Function fit_centroids is a wrapper for routines with the full
+    centroid calculations.
     fit_centroids takes two arguments:
 
     1.  A list of HiCIAO frames (as filenames)
@@ -29,9 +31,8 @@ def fit_centroids(filesetup, flux, method='moffat', storeall=True):
     print '\nFitting Centroids in Parallel'
     nframes = len(filesetup.framelist)
 
-    tan_zd = np.ndarray(nframes, np.float)
-    t = np.ndarray(nframes, np.float)
     newcenters = np.ndarray((2, nframes), np.float)
+    dr_rms = None
 
     ##################################################################
     # Take a first guess at the centroid from the center of light,
@@ -39,13 +40,25 @@ def fit_centroids(filesetup, flux, method='moffat', storeall=True):
     ##################################################################
 
     if method == 'moffat':
-        flux_avg = np.mean(flux, axis=0)
+        if flux is not None:
+            flux_avg = np.mean(flux, axis=0)
+        else:
+            filename = re.sub(".fits", "_ds.fits",
+                              filesetup.framelist[nframes // 2])
+            filename = re.sub(".*/", filesetup.reduce_dir + "/", filename)
+            flux_avg = pyf.open(filename)[-1].data
+
+        if side is not None:
+            if re.search('[Ll]eft', side):
+                flux_avg[:, dimx // 2:] = 0
+            elif re.search('[Rr]ight', side):
+                flux_avg[:, :dimx // 2] = 0
+            
         dimy, dimx = flux_avg.shape
         x, y = np.meshgrid(np.arange(dimx), np.arange(dimy))
         x = np.sum(x * flux_avg) / np.sum(flux_avg)
         y = np.sum(y * flux_avg) / np.sum(flux_avg)
-        #print y, x
-        
+
         centerguess = np.ndarray((nframes, 2), np.float)
         centerguess[:, 0] = y
         centerguess[:, 1] = x
@@ -53,33 +66,60 @@ def fit_centroids(filesetup, flux, method='moffat', storeall=True):
                                          centerguess=centerguess)
         mu_y, mu_x = [np.mean(y), np.mean(x)]
         sigy, sigx = [1000, 1000]
+
+        ##################################################################
+        # Use sigma-reject to mask discrepant frames.
+        ##################################################################
+        
         for i in range(4):
             sigy = np.std(y[np.where((y - mu_y)**2 < 10 * sigy**2)])
             sigx = np.std(x[np.where((x - mu_x)**2 < 10 * sigx**2)])
             mu_y = np.mean(y[np.where((y - mu_y)**2 < 10 * sigy**2)])
             mu_x = np.mean(x[np.where((x - mu_x)**2 < 10 * sigx**2)])
-        #np.copyto(y, mu_y, where=(y - mu_y)**2 > 10 * sigy**2)
-        #np.copyto(x, mu_x, where=(x - mu_x)**2 > 10 * sigx**2)
+            
         np.putmask(y, (y - mu_y)**2 > 10 * sigy**2, mu_y)
         np.putmask(x, (x - mu_x)**2 > 10 * sigx**2, mu_x)
 
         newcenters[:, :] = [y, x]
-            
-        #for i in range(nframes):
-        #    print newcenters[:, i]
-        return newcenters.T
+        centers = newcenters.T
     
-    ##################################################################
-    # Centroid the frames by cross-correlating against a library
-    # of PSF templates
-    ##################################################################
+    ####################################################################
+    # Main centroiding algorithm, discussed in Brandt+ 2012
+    # Centroid a map of chi2 residuals after subtracting PCA components
+    # The success array is false where the algorithm fails.
+    ####################################################################
 
     elif method == 'crosscorr':
-        y, x = parallel._crosscorr_centroid(filesetup.framelist, flux)
-        newcenters[:, :] = [y, x]
-        return newcenters.T
+        success, centers, dr_rms = parallel._cc_centroid(filesetup.framelist,
+                                                         flux, psf_dir=psf_dir,
+                                                         side=side)
+        igood = np.extract(success, np.arange(nframes))
+        for i in np.arange(nframes - 1, -1, -1):
+            if not success[i]:
+                del filesetup.framelist[i]
+        pickle.dump(filesetup, open('./dirinfo', 'w'))
+        centers = centers[igood]
+        pa = pa[igood]
+        nframes = len(igood)
+        if flux is not None:
+            flux = flux[igood]
 
     else:
         print '\nCentroiding method ' + method + ' not recognized in fit_centroids.'
         sys.exit()
+
+
+    ####################################################################
+    # Interactively set the absolute centroid.  
+    ####################################################################
+
+    fluxcen = parallel._rotate_recenter(filesetup, flux, storeall=True,
+                                        centers=centers, newdimen=201,
+                                        write_files=False)
+    fluxcen = np.median(fluxcen, axis=0)
+    yc, xc = centroid.finecenter(fluxcen, objname, filesetup.output_dir)
+    centers[:, 0] += yc
+    centers[:, 1] += xc
+
+    return centers, dr_rms
 

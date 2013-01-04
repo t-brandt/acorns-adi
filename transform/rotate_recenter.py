@@ -14,7 +14,7 @@ import re
 import warnings
 
 def rotate_recenter(frame, flux, center=None, theta=0, newdimen=None,
-                    writefiles=False, output_dir="."):
+                    writefiles=False, output_dir=".", ext="_r"):
     
     """
     Function rotate_recenter takes one argument:
@@ -29,7 +29,11 @@ def rotate_recenter(frame, flux, center=None, theta=0, newdimen=None,
     recenters it in an output array contained within an HDU.
     """ 
 
-    assert len(flux.shape) == 2, "Input array must be two-dimensional."
+    if flux is not None:
+        assert len(flux.shape) == 2, "Input array must be two-dimensional."
+    else:
+        flux = pyf.open(frame)[-1].data
+        
     dimy, dimx = flux.shape
     if newdimen is None:
         newdimen = max(dimy, dimx)
@@ -79,7 +83,8 @@ def rotate_recenter(frame, flux, center=None, theta=0, newdimen=None,
         flux_hdu = pyf.PrimaryHDU(flux, header)
         fluxout.append(flux_hdu)
         outname = re.sub(".*/", output_dir + "/", frame)
-        outname = re.sub(".fits", "_r.fits", outname)
+        outname = re.sub("_[a-z]*.fits", ".fits", outname)
+        outname = re.sub(".fits", ext + ".fits", outname)
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')

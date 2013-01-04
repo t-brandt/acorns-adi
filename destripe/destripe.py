@@ -19,7 +19,7 @@ from destripe_utils import *
 
 def destripe(frame, flat, hotpix, write_files, output_dir, bias_only,
              clean=True, storeall=True, r_ex=0, extraclean=True,
-             full_destripe=True, do_horiz=True):
+             full_destripe=True, do_horiz=True, PDI=False):
 
     """
     Function destripe takes two arguments:
@@ -37,6 +37,10 @@ def destripe(frame, flat, hotpix, write_files, output_dir, bias_only,
         Ignored if using only reference pixels.
     10. Mask deviant pixels by smoothing with a large median filter
         and looking for discrepancies?  default True
+    11. Perform the full H2RG analysis? default True
+    12. Calibrate the zero point in readout channels?  default True
+    13. Use separate left and right channels, as for HiCIAO's PDI
+        mode?  default False
 
     This function returns the destriped data.  It uses verticalmed,
     verticalref, horizontal, and interpbadpix from destripe_utils.
@@ -93,7 +97,8 @@ def destripe(frame, flat, hotpix, write_files, output_dir, bias_only,
                 oddstripe = verticalref(flux, 1)
                 evenstripe = oddstripe[::-1, :]
             else:
-                oddstripe, evenstripe = verticalmed(flux, flat, r_ex=r_ex)
+                oddstripe, evenstripe = verticalmed(flux, flat, r_ex=r_ex,
+                                                    PDI=PDI)
         except:
             print "Vertical destriping failed on frame " + frame
             #exit()

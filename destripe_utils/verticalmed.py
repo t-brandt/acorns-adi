@@ -9,17 +9,19 @@
 
 import numpy as np
 
-def verticalmed(flux, flat, r_ex=0):
+def verticalmed(flux, flat, r_ex=0, PDI=False):
 
     """
     Function verticalmed takes two arguments:
     1.  A 2048 x 2048 array of flux values
     2.  A 2048 x 2048 flat-field array
 
-    Optional argument:
+    Optional arguments:
     3.  Exclusion radius for calculting the median of the horizontal stripes
           (default zero, recommended values from 0 to 800)
           See Kandori-san's IDL routine for the equivalent.
+    4.  Use separate left and right channels, as for HiCIAO's PDI
+        mode?  default False
         
     verticalmed takes the median of the horizontal stripes to calculate a
     vertical template, as in Kandori-san's routine.  The routine ignores a
@@ -32,15 +34,20 @@ def verticalmed(flux, flat, r_ex=0):
     ###############################################################
 
     dimy, dimx = flux.shape
-    x = np.linspace(-dimx, dimx, dimx) / 2
-    y = np.linspace(-dimy, dimy, dimy) / 2
+    x = np.arange(dimx)
+    y = np.arange(dimy)
     x, y = np.meshgrid(x, y)
-    r2 = x**2 + y**2
 
     if r_ex > 0:
+        if not PDI:
+            r_ok = ((x - dimx / 2)**2 + (y - dimy / 2)**2) > r_ex**2
+        else:
+            r_ok = ((x - dimx / 4)**2 + (y - dimy / 2)**2) > r_ex**2
+            r_ok *= ((x - 3 * dimx / 4)**2 + (y - dimy / 2)**2) > r_ex**2
+            
         flux2 = np.ndarray(flux.shape, np.float32)
         flux2[:] = flux
-        np.putmask(flux2, r2 < r_ex**2, np.nan)
+        np.putmask(flux2, np.logical_not(r_ok), np.nan)
     else:
         flux2 = flux
 

@@ -3,12 +3,13 @@
 
 import sys
 import numpy as np
+import pyfits as pyf
 from transform import *
 from parallel import *
 from progressbar import ProgressBar
 
 def _rotate_recenter(filesetup, flux, storeall=True, centers=None, 
-                     theta=None, newdimen=None, write_files=False):
+                     theta=None, newdimen=None, write_files=False, ext="_r"):
 
     ######################################################################
     # Print parameters.  Are we asked to recenter, rotate, or both?  
@@ -31,7 +32,12 @@ def _rotate_recenter(filesetup, flux, storeall=True, centers=None,
         centers[:, 1] = flux.shape[2] // 2
     if newdimen is None:
         #newdimen = max(flux.shape[1], flux.shape[2])
-        newdimen = flux.shape[1]
+        if flux is not None:
+            newdimen = flux.shape[1]
+        else:
+            newdimen = pyf.open(filesetup.framelist[0])[-1].data.shape[1]
+    if storeall:
+        flux2 = np.ndarray((nframes, newdimen, newdimen), np.float32)
 
     if not (rotate or recenter):
         print "Called _rotate_recenter with no new centers or rotation angles."
@@ -61,14 +67,21 @@ def _rotate_recenter(filesetup, flux, storeall=True, centers=None,
 
     for i in range(nframes):
         if filesetup is not None:
-            tasks.put(Task(i, rotate_recenter, (filesetup.framelist[i],
+            frame = re.sub('.*/', filesetup.reduce_dir + '/',
+                           filesetup.framelist[i])
+            frame = re.sub('.fits', '_dw.fits', frame)
+        else:
+            frame = ''
+
+        if flux is not None:
+            tasks.put(Task(i, rotate_recenter, (frame,
                                                 flux[i], centers[i], theta[i],
                                                 newdimen, write_files,
-                                                filesetup.reduce_dir)))
+                                                filesetup.reduce_dir, ext)))
         else:
-            tasks.put(Task(i, rotate_recenter, ('', flux[i], centers[i],
+            tasks.put(Task(i, rotate_recenter, (frame, flux, centers[i],
                                                 theta[i], newdimen,
-                                                write_files, '')))
+                                                write_files, filesetup.reduce_dir, ext)))
             
     for i in range(ncpus):
         tasks.put(None)
@@ -78,22 +91,29 @@ def _rotate_recenter(filesetup, flux, storeall=True, centers=None,
     ######################################################################
 
     p = ProgressBar('green', width=30, block='=', lastblock='>', empty=' ')
-    
-    if newdimen != flux.shape[1]:
-        flux2 = np.zeros((flux.shape[0], newdimen, newdimen), np.float32)
 
+    if flux is not None:
+        if newdimen != flux.shape[1]:
+            flux2 = np.zeros((flux.shape[0], newdimen, newdimen), np.float32)
+            
     for i in range(nframes):
         p.render((i + 1) * 100 / nframes,
                  'Transforming Frame {0}'.format(i + 1))
         index, result = results.get()
-        if newdimen != flux.shape[1]:
+        if flux is not None:
+            if newdimen != flux.shape[1]:
+                flux2[index] = result
+            else:
+                flux[index] = result
+        elif storeall:
             flux2[index] = result
-        else:
-            flux[index] = result
 
-    if newdimen != flux.shape[1]:
+    if flux is not None:
+        if newdimen != flux.shape[1]:
+            flux = flux2
+    elif storeall:
         flux = flux2
-
+            
     #np.putmask(flux, np.logical_not(np.isfinite(flux)), 0)
 
     return flux

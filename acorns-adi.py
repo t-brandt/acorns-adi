@@ -48,6 +48,7 @@ def main():
     filesetup, adipar, locipar = GetConfig(prefix=opts.prefix)
 
     nframes = len(filesetup.framelist)
+    ngroup = 1 + int((nframes - 1) / locipar.max_n)
     flat = pyf.open(filesetup.flat)
     if filesetup.pixmask is not None:
         hotpix = pyf.open(filesetup.pixmask)
@@ -56,6 +57,7 @@ def main():
 
     dimy, dimx = pyf.open(filesetup.framelist[0])[-1].data.shape
     mem, ncpus, storeall = utils.config(nframes, dimy * dimx)
+    storeall = False
 
     ################################################################
     # WCS coordinates are not reliable in HiCIAO data with the image
@@ -90,60 +92,32 @@ def main():
     
     if np.all(utils.check_files(filesetup, ext="_r")):
         print "\nResuming reduction from recentered files."
-        flux = utils.read_files(filesetup, ext="_r") 
-    else:
-        if np.all(utils.check_files(filesetup, ext="_ds")):
-            flux = utils.read_files(filesetup, ext="_ds")
+        if ngroup == 1:
+            flux = utils.read_files(filesetup, ext="_r")
         else:
+            flux = None
+    else:
+        if storeall and np.all(utils.check_files(filesetup, ext="_ds")):
+            flux = utils.read_files(filesetup, ext="_ds")
+        elif not np.all(utils.check_files(filesetup, ext="_ds")):
             flux = parallel._destripe(filesetup, flat, hotpix, mem, adipar,
                                       write_files=True, storeall=storeall,
                                       full_destripe=adipar.full_destripe,
                                       do_horiz=adipar.full_destripe)
+        else:
+            flux = None
+            
         if adipar.dewarp:
             flux = parallel._dewarp(filesetup, mem, flux=flux, storeall=storeall)
 
         if adipar.do_centroid:
-
-        ####################################################################
-        # Main centroiding algorithm, discussed in Brandt+ 2012
-        # Centroid a map of chi2 residuals after subtracting PCA components
-        # The success array is false where the algorithm fails.
-        ####################################################################
-         
-            if adipar.center == 'crosscorr':
-                success, centers, dr_rms = parallel._cc_centroid(filesetup.framelist, flux, psf_dir=exec_path + '/psfref')
-        
-                igood = np.extract(success, np.arange(nframes))
-                for i in np.arange(nframes - 1, -1, -1):
-                    if not success[i]:
-                        del filesetup.framelist[i]
-                pickle.dump(filesetup, open('./dirinfo', 'w'))
-                centers = centers[igood]
-                pa = pa[igood]
-                nframes = len(igood)
-                if flux is not None:
-                    flux = flux[igood]
-                    
-        ####################################################################
-        # Backup centroiding algorithm: fit a Moffat profile
-        ####################################################################
-        
-            else:
-                centers = centroid.fit_centroids(filesetup, flux, method='moffat')
-            
-        ####################################################################
-        # Interactively set the absolute centroid.  
-        ####################################################################
-
-            fluxcen = parallel._rotate_recenter(filesetup, flux, storeall=True,
-                                                centers=centers, newdimen=201,
-                                                write_files=False)
-            fluxcen = np.median(fluxcen, axis=0)
-            yc, xc = centroid.finecenter(fluxcen, objname, filesetup.output_dir)
-            centers[:, 0] += yc
-            centers[:, 1] += xc
-            np.savetxt(filesetup.output_dir + '/' + objname + '_centers.dat',
-                       centers)
+            centers, dr_rms = centroid.fit_centroids(filesetup, flux, pa,
+                                                     storeall=storeall,
+                                                     objname=objname,
+                                                     method=adipar.center,
+                                                     psf_dir=exec_path+'/psfref')
+            np.savetxt(filesetup.output_dir + '/' + objname +
+                       '_centers.dat', centers)
 
         ####################################################################
         # Recenter the data onto a square array of the largest dimension
@@ -201,104 +175,131 @@ def main():
     ####################################################################
 
     partial_sub = None
-    x = np.arange(flux.shape[1]) - flux.shape[1] // 2
-    x, y = np.meshgrid(x, x)
-    r = np.sqrt(x**2 + y**2)
-    
-    if adipar.adi == 'LOCI':
+    full_pa = pa.copy()
+    full_framelist = [frame for frame in filesetup.framelist]
+    for igroup in range(ngroup):
 
-        ####################################################################
-        # Set the maximum radius at which to perform LOCI
-        ####################################################################
+        if ngroup > 1:
+            filesetup.framelist = full_framelist[igroup::ngroup]
+            if np.all(utils.check_files(filesetup, ext="_r")):
+                flux = utils.read_files(filesetup, ext="_r")
+            else:
+                print "Unable to read recentered files for LOCI."
+                sys.exit()
+            pa = full_pa[igroup::ngroup]
         
-        deltar = np.sqrt(np.pi * locipar.fwhm**2 / 4 * locipar.npsf)
-        rmax = int(flux.shape[1] // 2 - deltar - 50)
-        locipar.rmax = min(locipar.rmax, rmax)
-
-        if dr_rms is None:
-            nf, dy, dx = flux.shape
-            fluxmed = np.median(flux, axis=0)[dy // 2 - 100:dy // 2 + 101,
-                                              dx // 2 - 100:dx // 2 + 101]
-            sat = fluxmed > 0.7 * fluxmed.max()
-            r2 = r[dy // 2 - 100:dy // 2 + 101, dx // 2 - 100:dx // 2 + 101]**2
-            dr_rms = np.sqrt(np.sum(r2 * sat) / np.sum(sat))
-
-        ####################################################################
-        # This is regular LOCI
-        ####################################################################
+        x = np.arange(flux.shape[1]) - flux.shape[1] // 2
+        x, y = np.meshgrid(x, x)
+        r = np.sqrt(x**2 + y**2)
         
-        if locipar.feedback == 0:
-            partial_sub = loci.loci(flux, pa, locipar, mem, mode='LOCI',
-                                    pca_arr=pca_arr, r_ex=dr_rms, corr=corr,
-                                    method='matrix', do_partial_sub=True,
-                                    sub_dir=exec_path)
+        if adipar.adi == 'LOCI':
+
+            ################################################################
+            # Set the maximum radius at which to perform LOCI
+            ################################################################
+        
+            deltar = np.sqrt(np.pi * locipar.fwhm**2 / 4 * locipar.npsf)
+            rmax = int(flux.shape[1] // 2 - deltar - 50)
+            locipar.rmax = min(locipar.rmax, rmax)
             
-        ####################################################################
-        # The next block runs LOCI once, de-rotates, takes the median,
-        # and re-rotates to each frame's position angle.  It then runs
-        # LOCI again to over-correct the result.  Not recommended for
-        # SEEDS data with AO188.
-        ####################################################################
+            if dr_rms is None:
+                nf, dy, dx = flux.shape
+                fluxmed = np.median(flux, axis=0)[dy // 2 - 100:dy // 2 + 101,
+                                                  dx // 2 - 100:dx // 2 + 101]
+                sat = fluxmed > 0.7 * fluxmed.max()
+                r2 = r[dy//2 - 100:dy//2 + 101, dx//2 - 100:dx//2 + 101]**2
+                dr_rms = np.sqrt(np.sum(r2 * sat) / np.sum(sat))
+
+            ################################################################
+            # This is regular LOCI
+            ################################################################
         
+            if locipar.feedback == 0:
+                partial_sub = loci.loci(flux, pa, locipar, mem, mode='LOCI',
+                                        pca_arr=pca_arr, r_ex=dr_rms, corr=corr,
+                                        method='matrix', do_partial_sub=True,
+                                        sub_dir=exec_path)
+                
+            ################################################################
+            # The next block runs LOCI once, de-rotates, takes the median,
+            # and re-rotates to each frame's position angle.  It then runs
+            # LOCI again to over-correct the result.  Not recommended for
+            # SEEDS data with AO188.
+            ################################################################
+        
+            else:
+                fluxref = np.ndarray(flux.shape, np.float32)
+                fluxref[:] = flux
+            
+                loci.loci(fluxref, pca_arr, pa, locipar, mem, mode='LOCI',
+                          r_ex=dr_rms, pca_arr=pca_arr,
+                          corr=corr, method='matrix', do_partial_sub=False)
+                
+                for i in range(flux.shape[0]):
+                    np.putmask(fluxref[i], r > locipar.rmax - 1, 0)
+                    np.putmask(fluxref[i], r < dr_rms + 1, 0)
+                locipar.rmax -= 100
+                fluxref = parallel._rotate_recenter(filesetup, fluxref, theta=pa)
+            
+                for i in range(flux.shape[0]):
+                    np.putmask(fluxref[i], r > locipar.rmax - 1, 0)
+                    np.putmask(fluxref[i], r < dr_rms + 1, 0)
+                locipar.rmax -= 100
+                fluxmed = np.median(fluxref, axis=0)
+                for i in range(flux.shape[0]):
+                    fluxref[i] = fluxmed * locipar.feedback
+                fluxref = parallel._rotate_recenter(filesetup, fluxref, theta=-pa)
+            
+                loci.loci(flux, pa, locipar, mem, mode='refine', fluxref=fluxref,
+                          pca_arr=pca_arr, rmin=dr_rms, r_ex=dr_rms)
+
+            ################################################################
+            # Mask saturated areas (< dr_rms), do median subtraction at radii
+            # beyond the limit of the LOCI reduction
+            ################################################################
+
+            fluxmed = np.median(flux, axis=0)
+            for i in range(flux.shape[0]):
+                np.putmask(flux[i], r < dr_rms + 2, 0)
+                np.putmask(flux[i], r > locipar.rmax - 1, flux[i] - fluxmed)
+                
+         ####################################################################
+         # Alternative to LOCI: median PSF subtraction
+         ####################################################################
+
+        elif adipar.adi == 'median':
+            medpsf = np.median(flux, axis=0)
+            for i in range(flux.shape[0]):
+                flux[i] -= medpsf
+
         else:
-            fluxref = np.ndarray(flux.shape, np.float32)
-            fluxref[:] = flux
-            
-            loci.loci(fluxref, pca_arr, pa, locipar, mem, mode='LOCI',
-                      r_ex=dr_rms, pca_arr=pca_arr,
-                      corr=corr, method='matrix', do_partial_sub=False)
-            
-            for i in range(nframes):
-                np.putmask(fluxref[i], r > locipar.rmax - 1, 0)
-                np.putmask(fluxref[i], r < dr_rms + 1, 0)
-            locipar.rmax -= 100
-            fluxref = parallel._rotate_recenter(filesetup, fluxref, theta=pa)
-            
-            for i in range(nframes):
-                np.putmask(fluxref[i], r > locipar.rmax - 1, 0)
-                np.putmask(fluxref[i], r < dr_rms + 1, 0)
-            locipar.rmax -= 100
-            fluxmed = np.median(fluxref, axis=0)
-            for i in range(nframes):
-                fluxref[i] = fluxmed * locipar.feedback
-            fluxref = parallel._rotate_recenter(filesetup, fluxref, theta=-pa)
-            
-            loci.loci(flux, pa, locipar, mem, mode='refine', fluxref=fluxref,
-                      pca_arr=pca_arr, rmin=dr_rms, r_ex=dr_rms)
+            print "Error:  ADI reduction method " + adipar.adi + " not recognized."
+            #sys.exit(1)
 
         ####################################################################
-        # Mask saturated areas (< dr_rms), do median subtraction at radii
-        # beyond the limit of the LOCI reduction
+        # Derotate, combine flux array using mean/median hybrid (see
+        # Brandt+ 2012), measure standard deviation at each radius
         ####################################################################
 
-        fluxmed = np.median(flux, axis=0)
-        for i in range(nframes):
-            np.putmask(flux[i], r < dr_rms + 2, 0)
-            np.putmask(flux[i], r > locipar.rmax - 1, flux[i] - fluxmed)
+        if igroup == 0:
+            newhead = utils.makeheader(flux[0], pyf.open(fullframe)[0].header,
+                                       filesetup, adipar, locipar)
             
-    ####################################################################
-    # Alternative to LOCI: median PSF subtraction
-    ####################################################################
-
-    elif adipar.adi == 'median':
-        medpsf = np.median(flux, axis=0)
-        for i in range(nframes):
-            flux[i] -= medpsf
-
-    else:
-        print "Error:  ADI reduction method " + adipar.adi + " not recognized."
-        #sys.exit(1)
-
-    ####################################################################
-    # Derotate, combine flux array using mean/median hybrid (see
-    # Brandt+ 2012), measure standard deviation at each radius
-    ####################################################################
-
-    newhead = utils.makeheader(flux[0], pyf.open(fullframe)[0].header,
-                               filesetup, adipar, locipar)
-    
-    flux = parallel._rotate_recenter(filesetup, flux, theta=pa)        
-    fluxbest, noise = combine.meanmed(flux)
+            flux = parallel._rotate_recenter(filesetup, flux, theta=pa)
+            fluxtmp, noise = combine.meanmed(flux)
+            fluxbest = fluxtmp / ngroup
+            if partial_sub is not None:
+                partial_sub_tot = partial_sub / ngroup
+        else:
+            flux = parallel._rotate_recenter(filesetup, flux, theta=pa)
+            fluxtmp, noise = combine.meanmed(flux)
+            fluxbest += fluxtmp / ngroup
+            if partial_sub is not None:
+                partial_sub_tot += partial_sub / ngroup
+            
+    filesetup.framelist = full_framelist
+    if partial_sub is not None:
+        partial_sub = partial_sub_tot            
     
     ####################################################################
     # Rescale all arrays to 2001x2001 so that the center is pixel number

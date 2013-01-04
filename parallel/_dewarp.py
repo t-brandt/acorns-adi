@@ -3,6 +3,7 @@
 
 from progressbar import ProgressBar
 from transform import *
+import re
 import pyfits as pyf
 from parallel import *
 
@@ -11,12 +12,12 @@ def _dewarp(filesetup, memory, flux=None, storeall=True, write_files=False):
     nframes = len(filesetup.framelist)
     print '\nDewarping %d Frames' % nframes
 
-    
     fullframe = re.sub("-C.*fits", ".fits", filesetup.framelist[0])
     if flux is not None:
         dimen = flux.shape[1]
     else:
         dimen = pyf.open(fullframe)[0].header['NAXIS1']
+        write_files = True
 
     mjd = pyf.open(fullframe)[0].header['MJD']
     
@@ -43,7 +44,13 @@ def _dewarp(filesetup, memory, flux=None, storeall=True, write_files=False):
     ######################################################################
 
     for i in range(nframes):
-        tasks.put(Task(i, distortion_interp_flux, (flux[i], y, x)))
+        if write_files:
+            frame = re.sub('.*/', filesetup.reduce_dir + '/',
+                           filesetup.framelist[i])
+            tasks.put(Task(i, distortion_interp_frame, (frame, y, x, storeall,
+                                                        filesetup.reduce_dir)))
+        else:
+            tasks.put(Task(i, distortion_interp_flux, (flux[i], y, x)))
     for i in range(ncpus):
         tasks.put(None)
                        
@@ -56,7 +63,8 @@ def _dewarp(filesetup, memory, flux=None, storeall=True, write_files=False):
         p.render((i + 1) * 100 / nframes,
                  'Dewarping Frame {0}'.format(i + 1))
         index, result = results.get()
-        flux[index] = result
+        if storeall:
+            flux[index] = result
 
     if storeall:
         return flux

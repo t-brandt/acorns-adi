@@ -3,3 +3,6 @@
 
 # automatic backups, particularly from emacs
 *~
+
+# This is an experimental and messy PDI/ADI hack.
+acorns_pdi.py

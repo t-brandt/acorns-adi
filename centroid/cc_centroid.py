@@ -20,7 +20,7 @@ import sys
 def errorfunc(p, y, x, chi2):
     return chi2 - (p[0] + p[1] * (y - p[3])**2 + p[2] * (x - p[4])**2)
 
-def cc_centroid(refimage, image=None, frame=None, usemask=True):
+def cc_centroid(refimage, image=None, frame=None, usemask=True, side=None):
 
     """
     function cc_centroid(refimage, image=None, frame=None)
@@ -60,7 +60,29 @@ def cc_centroid(refimage, image=None, frame=None, usemask=True):
             frame_dw = re.sub(".fits", "_dw.fits", frame)
         else:
             frame_dw = frame
-        image = pyf.open(frame_dw)[0].data
+        try:
+            image = pyf.open(frame_dw)[-1].data
+        except:
+            frame_ds = re.sub(".fits", "_ds.fits", frame)
+            try:
+                image = pyf.open(frame_ds)[-1].data
+            except:
+                print "Error, cannot read data from " + frame_ds
+                sys.exit(1)
+
+
+    ####################################################################
+    # Add the capability to only search the left or right half of the
+    # image 
+    ####################################################################
+
+    image_save = image.copy()
+    dimy, dimx = image.shape
+    if side is not None:
+        if re.search('[Ll]eft', side):
+            image[:, dimx // 2:] = 0
+        elif re.search('[Rr]ight', side):
+            image[:, :dimx // 2] = 0                
 
     ####################################################################
     # Find approximate centroid by flagging (near-)saturated pixels
@@ -72,7 +94,8 @@ def cc_centroid(refimage, image=None, frame=None, usemask=True):
     y = np.arange(image.shape[0])
     x, y = np.meshgrid(x, y)
     satpts = image > 0.8 * sat
-
+    image = image_save
+    
     maxpts = 0
     imax, jmax = [0, 0]
     for i in range(100, image.shape[0] - 100, 100):
@@ -91,8 +114,8 @@ def cc_centroid(refimage, image=None, frame=None, usemask=True):
     ####################################################################
 
     di, dj = [image.shape[0] // 2, image.shape[1] // 2]
-    if np.abs(imax - di) > di / 2 or np.abs(jmax - dj) > dj / 2:
-        return None # failure
+    #if np.abs(imax - di) > di / 2 or np.abs(jmax - dj) > dj / 2:
+    #    return None # failure
 
     for di in range(100, 40, -10):
         npts = 1. * np.sum(satpts[imax - di:imax + di, jmax - di:jmax + di])

@@ -17,7 +17,7 @@ import numpy
 from progressbar import ProgressBar
 import sys
 
-def read_files(filesetup, ext="", newdimen=None):
+def read_files(filesetup, ext="", newdimen=None, maxread=None):
 
     ###################################################################
     # Check for the existence of each file and that it is the same
@@ -25,22 +25,24 @@ def read_files(filesetup, ext="", newdimen=None):
     # directory and in the output directory.  
     ###################################################################
 
-    nframes = len(filesetup.framelist)
+    try:
+        nframes = max(len(filesetup.framelist), maxread)
+    except:
+        nframes = len(filesetup.framelist)
+        
     p = ProgressBar('green', width=30, block='=', lastblock='>', empty=' ')
 
-    for i in range(len(filesetup.framelist)):
+    for i in range(nframes):
         frame = filesetup.framelist[i]
         p.render((i + 1) * 100 / nframes, 'Reading File {0}'.format(i + 1))
         
-        newfile1 = re.sub(".fits", ext + ".fits", frame)     
-        newfile2 = re.sub(".*HICA", filesetup.reduce_dir + "/HICA", newfile1)
+        newfile = re.sub(".fits", ext + ".fits", frame)     
+        newfile = re.sub(".*/", filesetup.reduce_dir + "/", newfile)
 
-        if os.path.isfile(newfile2):
-            framedata = pyf.open(newfile2)[-1].data
-        elif os.path.isfile(newfile1):
-            framedata = pyf.open(newfile1)[-1].data
+        if os.path.isfile(newfile):
+            framedata = pyf.open(newfile)[-1].data
         else:
-            print "Error: failed to read data from " + frame + "."
+            print "Error: failed to read data from " + newfile + "."
             sys.exit(1)
 
     ###################################################################

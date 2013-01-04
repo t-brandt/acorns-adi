@@ -111,9 +111,6 @@ class LOCIparam(object):
             ('%.2f' % self.nfwhm) + " PSF FWHM."
         text += "\nUsing optimization regions of " + \
             str(int(self.npsf)) + " PSF footprints."
-        #text += "\nSmoothing reference images with " + \
-        #    str(int(self.smooth)) + "x" + str(int(self.smooth)) + \
-        #    "median filters\n   to calcuate for LOCI coefficients"
         text += "\nUsing optimization regions extending " + \
             str('%d' % int(self.innerfrac * 100)) + "% inward in radius"
         text += "\nUsing a radial increment of " + \

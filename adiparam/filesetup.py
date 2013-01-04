@@ -266,7 +266,8 @@ class FileSetup(object):
                                          "with photometric reference frames.",
                                          title="Photometric Reference Frames",
                                          default=self.data_dir)
-                self.photlist = glob.glob(self.phot_dir + "/" + prefix + "*.fits")
+                self.photlist = glob.glob(self.phot_dir + "/" + prefix +
+                                          "*[0-9].fits")
                 if len(self.photlist) > 0:
                     usefiles = choosefiles(data_dir=self.phot_dir, 
                                            filelist=self.photlist)

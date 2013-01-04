@@ -103,7 +103,8 @@ def loci(flux, pa, locipar, mem, mode='LOCI', fluxref=None,
     ######################################################################
     
     nframes = flux.shape[0]
-    ngroup = 1 + int((nframes - 1) / locipar.max_n)
+    #ngroup = 1 + int((nframes - 1) / locipar.max_n)
+    ngroup = 1
     oldshape = flux.shape
     fluxsmooth = np.ndarray(flux.shape, np.float32)
 

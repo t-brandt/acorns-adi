@@ -18,7 +18,8 @@ from parallel import *
 
 def _destripe(filesetup, flat, hotpix, memory, adipar, 
               write_files=False, clean=True, storeall=True,
-              full_destripe=True, do_horiz=True, extraclean=True):
+              full_destripe=True, do_horiz=True, extraclean=True,
+              PDI=False):
     """
     Function _destripe is essentially a parallelized wrapper for the
     function destripe in the destripe module.  _destripe takes five
@@ -39,6 +40,9 @@ def _destripe(filesetup, flat, hotpix, memory, adipar,
     10. Perform full analysis apppropriate to Hawaii-IIRG detector
                (defualt true)
     11. Calibrate the zero point in different readout channels (default true)
+    12. Mask outlier pixels as identified with a large median filter (default
+               true)
+    13. Use two readout channels, as in HiCIAO's PDI mode (default false)
 
     destripe estimates the bias at each pixel, subtracts it, and produces
     a flatfielded image.  32 bit integer data is converted to 32 bit
@@ -131,7 +135,7 @@ def _destripe(filesetup, flat, hotpix, memory, adipar,
                        (filesetup.framelist[i], flat[-1].data, pixmask, 
                         write_files, filesetup.reduce_dir, 
                         adipar.bias_only, clean, storeall, adipar.r_ex,
-                        extraclean, full_destripe, do_horiz)))
+                        extraclean, full_destripe, do_horiz, PDI)))
     for i in range(ncpus):
          tasks.put(None)
 
@@ -169,7 +173,7 @@ def _destripe(filesetup, flat, hotpix, memory, adipar,
         result = destripe(filesetup.framelist[ibad[i]], flat[-1].data, pixmask, 
                           write_files, filesetup.reduce_dir, 
                           adipar.bias_only, clean, storeall, adipar.r_ex,
-                          extraclean, full_destripe, do_horiz)
+                          extraclean, full_destripe, do_horiz, PDI)
         if storeall:
             flux[ibad[i]] = result
 
