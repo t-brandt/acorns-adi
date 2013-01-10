@@ -31,13 +31,14 @@ def _rotate_recenter(filesetup, flux, storeall=True, centers=None,
         centers[:, 0] = flux.shape[1] // 2
         centers[:, 1] = flux.shape[2] // 2
     if newdimen is None:
-        #newdimen = max(flux.shape[1], flux.shape[2])
         if flux is not None:
             newdimen = flux.shape[1]
         else:
             newdimen = pyf.open(filesetup.framelist[0])[-1].data.shape[1]
     if storeall:
         flux2 = np.ndarray((nframes, newdimen, newdimen), np.float32)
+    else:
+        flux2 = None
 
     if not (rotate or recenter):
         print "Called _rotate_recenter with no new centers or rotation angles."
@@ -70,18 +71,19 @@ def _rotate_recenter(filesetup, flux, storeall=True, centers=None,
             frame = re.sub('.*/', filesetup.reduce_dir + '/',
                            filesetup.framelist[i])
             frame = re.sub('.fits', '_dw.fits', frame)
+            reduce_dir = filesetup.reduce_dir
         else:
             frame = ''
+            reduce_dir = ''
 
         if flux is not None:
-            tasks.put(Task(i, rotate_recenter, (frame,
-                                                flux[i], centers[i], theta[i],
-                                                newdimen, write_files,
-                                                filesetup.reduce_dir, ext)))
+            tasks.put(Task(i, rotate_recenter, (frame, flux[i], centers[i],
+                                                theta[i], newdimen,
+                                                write_files, reduce_dir, ext)))
         else:
             tasks.put(Task(i, rotate_recenter, (frame, flux, centers[i],
                                                 theta[i], newdimen,
-                                                write_files, filesetup.reduce_dir, ext)))
+                                                write_files, reduce_dir, ext)))
             
     for i in range(ncpus):
         tasks.put(None)
@@ -100,22 +102,9 @@ def _rotate_recenter(filesetup, flux, storeall=True, centers=None,
         p.render((i + 1) * 100 / nframes,
                  'Transforming Frame {0}'.format(i + 1))
         index, result = results.get()
-        if flux is not None:
-            if newdimen != flux.shape[1]:
-                flux2[index] = result
-            else:
-                flux[index] = result
-        elif storeall:
+        if storeall:
             flux2[index] = result
 
-    if flux is not None:
-        if newdimen != flux.shape[1]:
-            flux = flux2
-    elif storeall:
-        flux = flux2
-            
-    #np.putmask(flux, np.logical_not(np.isfinite(flux)), 0)
-
-    return flux
+    return flux2
     
 

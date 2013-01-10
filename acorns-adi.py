@@ -57,8 +57,17 @@ def main():
 
     dimy, dimx = pyf.open(filesetup.framelist[0])[-1].data.shape
     mem, ncpus, storeall = utils.config(nframes, dimy * dimx)
-    storeall = False
-
+    #storeall = False
+    
+    if filesetup.scale_phot:
+        x, y = np.meshgrid(np.arange(7) - 3, np.arange(7) - 3)
+        window = (x**2 + y**2 < 2.51**2) * 1.0
+        window /= np.sum(window)
+        ref_phot, ref_psf = photometry.calc_phot(filesetup, adipar, flat,
+                                                 hotpix, mem, window)
+    #print ref_phot
+    #sys.exit()
+    
     ################################################################
     # WCS coordinates are not reliable in HiCIAO data with the image
     # rotator off.  Compute parallactic angle.  Otherwise, trust the
@@ -115,7 +124,7 @@ def main():
                                                      storeall=storeall,
                                                      objname=objname,
                                                      method=adipar.center,
-                                                     psf_dir=exec_path+'/psfref')
+                                                     psf_dir=exec_path+'/psfref', ref_psf=ref_psf)
             np.savetxt(filesetup.output_dir + '/' + objname +
                        '_centers.dat', centers)
 
@@ -130,6 +139,7 @@ def main():
             flux = parallel._rotate_recenter(filesetup, flux, storeall=storeall,
                                              centers=centers, newdimen=mindim,
                                              write_files=True)
+            nframes = len(filesetup.framelist)
 
     ####################################################################
     # Perform scaled PCA on the flux array; alternatively, read in an
@@ -337,8 +347,8 @@ def main():
         ####################################################################
 
         if filesetup.scale_phot:
-            ref_phot = photometry.calc_phot(filesetup, adipar, flat,
-                                                hotpix, mem, window)
+            #ref_phot = photometry.calc_phot(filesetup, adipar, flat,
+            #                                    hotpix, mem, window)[0]
             sensitivity /= ref_phot
             fluxbest /= ref_phot
             noise /= ref_phot
@@ -362,10 +372,10 @@ def main():
     # Write the output fits files. 
     ####################################################################
 
-    snr = pyf.HDUList(pyf.PrimaryHDU(fluxsnr, newhead))
-    final = pyf.HDUList(pyf.PrimaryHDU(fluxbest, newhead))
+    snr = pyf.HDUList(pyf.PrimaryHDU(fluxsnr.astype(np.float32), newhead))
+    final = pyf.HDUList(pyf.PrimaryHDU(fluxbest.astype(np.float32), newhead))
     if partial_sub is not None:
-        contrast = pyf.HDUList(pyf.PrimaryHDU(sensitivity, newhead))
+        contrast = pyf.HDUList(pyf.PrimaryHDU(sensitivity.astype(np.float32), newhead))
 
     name_base = filesetup.output_dir + '/' + objname
     snr.writeto(name_base + '_snr.fits', clobber=True)

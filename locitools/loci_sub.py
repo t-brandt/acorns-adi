@@ -161,19 +161,16 @@ def loci_sub(annulus_opt, annulus_sub, pa, minsep, r0, pcaopt=None,
                             A = fluxopt[opt_ref[:]]
                             b = fluxopt[iframe]
                             coef = linalg.lstsq(A.T, b)[0]
-                            if submat is not None:
-                                sub = submat[optframes[:]]
-                                y = all_y[optframes[:]]
-                                sub_coef = linalg.lstsq(A.T, sub)[0]
+                            if sub_arr is not None:
+                                sub_coef = linalg.lstsq(A.T, sub_arr)[0]
+                                
                     
                 elif method == 'lstsq':
                     A = fluxopt[opt_ref[:]]
                     b = fluxopt[iframe]
                     coef = linalg.lstsq(A.T, b)[0]
-                    if submat is not None:
-                        sub = submat[optframes[:]]
-                        y = all_y[optframes[:]]
-                        sub_coefs = linalg.lstsq(A.T, sub)[0]
+                    if sub_arr is not None:
+                        sub_coef = linalg.lstsq(A.T, sub_arr)[0]
                     
                 elif method == 'eqcoef':
                     coef = np.ones(opt_ref.shape)

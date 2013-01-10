@@ -193,6 +193,10 @@ class FileSetup(object):
             else:
                 self.framelist = glob.glob(self.data_dir + "/" + prefix + 
                                            "*[0-9].fits")
+                for i in range(len(self.framelist) - 1, -1, -1):
+                    if re.search('-C[0-9][0-9]*.fits', self.framelist[i]):
+                        self.framelist.remove(self.framelist[i])
+                
                 if len(self.framelist) > 0:
                     usefiles = choosefiles(data_dir=self.data_dir, 
                                            filelist=self.framelist)

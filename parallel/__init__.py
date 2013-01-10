@@ -1,4 +1,4 @@
-from utils import *
+from par_utils import *
 from _dewarp import _dewarp
 from _radialsub import _radialsub
 from _destripe import _destripe

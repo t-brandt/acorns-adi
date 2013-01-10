@@ -79,7 +79,8 @@ def rotate_recenter(frame, flux, center=None, theta=0, newdimen=None,
 
     if writefiles:
         fluxout = pyf.HDUList()
-        header = pyf.open(frame)[0].header
+        rootname = re.sub("_[a-z]*.fits", ".fits", frame)        
+        header = pyf.open(rootname)[0].header
         flux_hdu = pyf.PrimaryHDU(flux, header)
         fluxout.append(flux_hdu)
         outname = re.sub(".*/", output_dir + "/", frame)

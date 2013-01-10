@@ -114,10 +114,10 @@ def cc_centroid(refimage, image=None, frame=None, usemask=True, side=None):
     ####################################################################
 
     di, dj = [image.shape[0] // 2, image.shape[1] // 2]
-    #if np.abs(imax - di) > di / 2 or np.abs(jmax - dj) > dj / 2:
-    #    return None # failure
+    if side is None and (np.abs(imax - di) > di / 2 or np.abs(jmax - dj) > dj / 2):
+        return None # failure
 
-    for di in range(100, 40, -10):
+    for di in range(100, 70, -10):
         npts = 1. * np.sum(satpts[imax - di:imax + di, jmax - di:jmax + di])
         yc = np.sum(satpts[imax - di:imax + di, jmax - di:jmax + di] *
                     y[imax - di:imax + di, jmax - di:jmax + di]) / npts
@@ -129,7 +129,7 @@ def cc_centroid(refimage, image=None, frame=None, usemask=True, side=None):
             return None # failure
         
     ####################################################################
-    # Calculate the typical saturation radius; cap at 400 mas
+    # Calculate the typical saturation radius; cap at 700 mas
     ####################################################################
         
     dr_rms = np.sum(satpts[imax - di:imax + di, jmax - di:jmax + di] *
@@ -137,7 +137,7 @@ def cc_centroid(refimage, image=None, frame=None, usemask=True, side=None):
     dr_rms += np.sum(satpts[imax - di:imax + di, jmax - di:jmax + di] *
                     (x[imax - di:imax + di, jmax - di:jmax + di] - xc)**2)
     dr_rms = np.sqrt(dr_rms / npts)
-    dr_rms = min(dr_rms, 40)
+    dr_rms = min(dr_rms, 70)
 
     center = [imax, jmax]
 
@@ -185,7 +185,7 @@ def cc_centroid(refimage, image=None, frame=None, usemask=True, side=None):
     ####################################################################  
 
     chi2_best = np.inf
-    n = 19
+    n = 21
     x = np.arange(n) - n // 2
     x, y = np.meshgrid(x, x)
     

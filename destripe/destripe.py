@@ -114,8 +114,8 @@ def destripe(frame, flat, hotpix, write_files, output_dir, bias_only,
 
         flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
 
-        np.putmask(flux, flux < -1000, 0)
-        np.putmask(flux, flux > 5e4 * ncoadd, np.nan)
+        flux[flux < -1000] = 0
+        flux[flux > 5e4 * ncoadd] = np.nan
     else:
         flux[4:-4, 4:-4] /= flat[4:-4, 4:-4]
 

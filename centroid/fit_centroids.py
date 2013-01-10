@@ -17,7 +17,8 @@ import parallel
 import centroid
 
 def fit_centroids(filesetup, flux, pa, method='moffat', storeall=True,
-                  objname='Unknown_Object', psf_dir='psfref', side=None):
+                  objname='Unknown_Object', psf_dir='psfref', side=None,
+                  ref_psf=None):
 
     """
     Function fit_centroids is a wrapper for routines with the full
@@ -92,7 +93,8 @@ def fit_centroids(filesetup, flux, pa, method='moffat', storeall=True,
     elif method == 'crosscorr':
         success, centers, dr_rms = parallel._cc_centroid(filesetup.framelist,
                                                          flux, psf_dir=psf_dir,
-                                                         side=side)
+                                                         side=side,
+                                                         ref_psf=ref_psf)
         igood = np.extract(success, np.arange(nframes))
         for i in np.arange(nframes - 1, -1, -1):
             if not success[i]:

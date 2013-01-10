@@ -14,8 +14,9 @@ import pyfits as pyf
 from centroid import *
 import multiprocessing
 from parallel import *
+import utils
 
-def _cc_centroid(framelist, flux=None, refimage=None, psf_dir='psfref',
+def _cc_centroid(framelist, flux=None, ref_psf=None, psf_dir='psfref',
                  usemask=True, side=None):
 
     """
@@ -37,12 +38,16 @@ def _cc_centroid(framelist, flux=None, refimage=None, psf_dir='psfref',
     # Read in reference data
     ####################################################################
 
-    if refimage is None:
-        im = pyf.open(psf_dir + '/pcacomp_0.fits')[0].data
+    im = pyf.open(psf_dir + '/pcacomp_0.fits')[0].data
+    if ref_psf is None:
         refimage = np.ndarray((3, im.shape[0], im.shape[1]))
-        refimage[0] = im
-        refimage[1] = pyf.open(psf_dir + '/pcacomp_1.fits')[0].data
-        refimage[2] = pyf.open(psf_dir + '/pcacomp_2.fits')[0].data
+    else:
+        refimage = np.ndarray((4, im.shape[0], im.shape[1]))
+        refimage[-1] = utils.arr_resize(ref_psf, newdim=im.shape[0], padval=0)
+               
+    refimage[0] = im
+    refimage[1] = pyf.open(psf_dir + '/pcacomp_1.fits')[0].data
+    refimage[2] = pyf.open(psf_dir + '/pcacomp_2.fits')[0].data
     
     ######################################################################
     # Set up ncpus workers, one for each thread.
