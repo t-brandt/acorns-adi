@@ -7,7 +7,7 @@
 # Summary:  Dewarp, recenter, and rotate an image.  
 # 
 
-import numpy
+import numpy as np
 import scipy
 import scipy.ndimage
 import scipy.interpolate
@@ -77,9 +77,9 @@ def distortion_map(dimen=2048, mjd=55000):
     # is very accurate for sources near the center of the FOV
     #################################################################
 
-    x = numpy.linspace(0, dimen - 1., dimen) - dimen // 2
-    y = numpy.linspace(0, dimen - 1., dimen) - dimen // 2
-    x, y = numpy.meshgrid(x, y)
+    x = np.linspace(0, dimen - 1., dimen) - dimen // 2
+    y = np.linspace(0, dimen - 1., dimen) - dimen // 2
+    x, y = np.meshgrid(x, y)
     
     #################################################################
     # Convert units to arcseconds, pixel scale will be 9.5 mas

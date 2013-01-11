@@ -97,7 +97,7 @@ class LOCIparam(object):
                             "each optimization region.\n" +
                             "Must be between 50 and twice Npsf.",
                             title="Maximum Number of LOCI Comparison Frames",
-                            default=self.npsf, minval=50, maxval=self.npsf)
+                            default=100, minval=50, maxval=self.npsf)
 
         self.ngroup = None
         

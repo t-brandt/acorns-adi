@@ -131,7 +131,7 @@ def cc_centroid(refimage, image=None, frame=None, usemask=True, side=None):
     ####################################################################
     # Calculate the typical saturation radius; cap at 700 mas
     ####################################################################
-        
+
     dr_rms = np.sum(satpts[imax - di:imax + di, jmax - di:jmax + di] *
                     (y[imax - di:imax + di, jmax - di:jmax + di] - yc)**2)
     dr_rms += np.sum(satpts[imax - di:imax + di, jmax - di:jmax + di] *
