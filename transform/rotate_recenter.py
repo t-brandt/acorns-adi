@@ -75,7 +75,7 @@ def rotate_recenter(frame, flux, center=None, theta=0, newdimen=None,
     # requested. 
     #################################################################
     
-    flux = scipy.ndimage.map_coordinates(flux, [y, x], order=1)
+    flux = scipy.ndimage.map_coordinates(flux, [y, x], order=3)
 
     if writefiles:
         fluxout = pyf.HDUList()

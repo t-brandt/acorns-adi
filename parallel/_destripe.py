@@ -160,9 +160,9 @@ def _destripe(filesetup, flat, hotpix, memory, adipar,
                  'Destriping Frame {0}'.format(i + 1))
         index, result = results.get()
             
+        success[index] = True
         if storeall:
             flux[index] = result
-            success[index] = True
 
     # Did we lose some frames?  Finish them up.
 

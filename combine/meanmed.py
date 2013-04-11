@@ -36,7 +36,7 @@ def meanmed(flux, smoothwidth=2):
     x, y = np.meshgrid(x, y)
     r = np.reshape(np.sqrt(x**2 + y**2).astype(int), -1)
     rindx = np.arange(r.shape[0])
-    rsort, rindx = zip(*sorted(zip(r, indx)))
+    rsort, rindx = zip(*sorted(zip(r, rindx)))
 
     rindex = np.arange(r.shape[0])
     rindex[:] = rindx

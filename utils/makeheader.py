@@ -13,7 +13,7 @@
 import pyfits as pyf
 import re
 
-def makeheader(flux, header, filesetup, adipar, locipar):
+def makeheader(flux, header, framelist, adipar, locipar):
 
     newhead = pyf.PrimaryHDU(flux).header
 
@@ -26,12 +26,15 @@ def makeheader(flux, header, filesetup, adipar, locipar):
     newhead.update('RA', header['RA'], 'Right Ascension of Pointing (J2000)')
     newhead.update('Dec', header['DEC'], 'Declination of Pointing (J2000)')
     newhead.update('Date', header['DATE'], 'Observation Date')
-    newhead.update('NFrames', len(filesetup.framelist), 'Number of Science Frames Used')
+    newhead.update('NFrames', len(framelist), 'Number of Science Frames Used')
 
     t_tot = 0
-    for frame in filesetup.framelist:
+    for frame in framelist:
         fullframe = re.sub("-C.*fits", ".fits", frame)
-        t_tot += pyf.open(fullframe)[0].header['EXPTIME']
+        if fullframe == frame:
+            t_tot += float(pyf.open(fullframe)[0].header['EXPTIME'])
+        else:
+            t_tot += float(pyf.open(fullframe)[0].header['EXP1TIME'])
         
     newhead.update('T_Int', t_tot / 60, 'Total Integration Time (minutes)')
 
@@ -60,7 +63,7 @@ def makeheader(flux, header, filesetup, adipar, locipar):
         newhead.update('dr_in', locipar.innerfrac, 'Fraction of dr_sub Interior to r_sub')
         newhead.update('dr_min', locipar.dr0, 'Minimum Radial Increment')
         newhead.update('smooth', locipar.smooth, 'Size of 2D Median Smoothing Filter for LOCI')
-        newhead.update('ngroup', 1 + int((len(filesetup.framelist) - 1) / locipar.max_n), 'Number of Groups of LOCI frames')
+        newhead.update('ngroup', 1 + int((len(framelist) - 1) / locipar.max_n), 'Number of Groups of LOCI frames')
         newhead.update('Feedback', locipar.feedback, 'Feedback coefficient for LOCI refinement')
 
 

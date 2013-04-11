@@ -74,12 +74,21 @@ def pca(flux, ncomp=5, nread=0, dosub=True, pcadir='.'):
     if nread > 0:
         meanflux2 = pyf.open(pcadir + '/meanflux.fits')[0].data
         pcashape = meanflux2.shape
-        n = (pca_arr.shape[1] - pcashape[0]) // 2
-        pca_arr[ncomp + 1, n:-n, n:-n] = meanflux2
+        if pca_arr.shape[1] > pcashape[0]:
+            n = (pca_arr.shape[1] - pcashape[0]) // 2
+            pca_arr[ncomp + 1, n:-n, n:-n] = meanflux2
+        else:
+            n = (pcashape[0] - pca_arr.shape[1]) // 2
+            pca_arr[ncomp + 1] = meanflux2[n:-n, n:-n]
+            
 
     for i in range(nread):
-        pca_arr[ncomp + i + 2, n:-n, n:-n] = pyf.open(pcadir + '/pca_comp_alt' +
-                                                      str(i) + '.fits')[0].data
+        if pca_arr.shape[1] > pcashape[0]:
+            pca_arr[ncomp + i + 2, n:-n, n:-n] = pyf.open(pcadir + '/pca_comp_alt' +
+                                                          str(i) + '.fits')[0].data
+        else:
+            pca_arr[ncomp + i + 2] = pyf.open(pcadir + '/pca_comp_alt' +
+                                              str(i) + '.fits')[0].data[n:-n, n:-n]
 
     if not dosub:
         return np.reshape(flux, oldshape), pca_arr

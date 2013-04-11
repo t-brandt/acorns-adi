@@ -57,7 +57,6 @@ def main():
 
     dimy, dimx = pyf.open(filesetup.framelist[0])[-1].data.shape
     mem, ncpus, storeall = utils.config(nframes, dimy * dimx)
-    #storeall = False
     
     if filesetup.scale_phot:
         x, y = np.meshgrid(np.arange(7) - 3, np.arange(7) - 3)
@@ -65,8 +64,9 @@ def main():
         window /= np.sum(window)
         ref_phot, ref_psf = photometry.calc_phot(filesetup, adipar, flat,
                                                  hotpix, mem, window)
-    #print ref_phot
-    #sys.exit()
+    else:
+        ref_psf = None
+        ref_phot = None
     
     ################################################################
     # WCS coordinates are not reliable in HiCIAO data with the image
@@ -104,7 +104,7 @@ def main():
         if ngroup == 1:
             flux = utils.read_files(filesetup, ext="_r")
         else:
-            flux = None
+            flux = utils.read_files(filesetup, ext="_r")
     else:
         if storeall and np.all(utils.check_files(filesetup, ext="_ds")):
             flux = utils.read_files(filesetup, ext="_ds")
@@ -125,6 +125,11 @@ def main():
                                                      objname=objname,
                                                      method=adipar.center,
                                                      psf_dir=exec_path+'/psfref', ref_psf=ref_psf)
+            #centers = np.ndarray((nframes, 2))
+            #centers[:, 0] = 1026 - 128
+            #centers[:, 1] = 949 + 60
+
+            #dr_rms = 30
             np.savetxt(filesetup.output_dir + '/' + objname +
                        '_centers.dat', centers)
 
@@ -148,8 +153,13 @@ def main():
     
     if False:
         pcapath = '/scr/wakusei1/users/tbrandt'
-        flux, pca_arr = pca.pca(flux, ncomp=0, nread=5, dosub=True,
+        flux, pca_arr = pca.pca(flux, ncomp=20, nread=2, dosub=True,
                                 pcadir=pcapath + '/psfref')
+        for i in range(nframes):
+            out = pyf.HDUList(pyf.PrimaryHDU(flux[i].astype(np.float32),
+                                             pyf.open(filesetup.framelist[i])[0].header))
+            rootfile = re.sub('.*/', '', filesetup.framelist[i])
+            out.writeto(filesetup.reduce_dir + '/' + re.sub('.fits', '_rp.fits', rootfile), clobber=True)
         if dr_rms is None:
             dr_rms = 20
     elif False:
@@ -168,7 +178,8 @@ def main():
     ####################################################################
 
     if False:
-        corr = pca.allcorr(range(int(locipar.rmax)), flux, n=80)    
+        corr = pca.allcorr(range(int(locipar.rmax)), flux, n=80)
+        ngroup = 1
     else:
         corr = None
         
@@ -191,8 +202,8 @@ def main():
 
         if ngroup > 1:
             filesetup.framelist = full_framelist[igroup::ngroup]
-            if np.all(utils.check_files(filesetup, ext="_r")):
-                flux = utils.read_files(filesetup, ext="_r")
+            if np.all(utils.check_files(filesetup, ext="_rp")):
+                flux = utils.read_files(filesetup, ext="_rp")
             else:
                 print "Unable to read recentered files for LOCI."
                 sys.exit()
@@ -211,7 +222,7 @@ def main():
             deltar = np.sqrt(np.pi * locipar.fwhm**2 / 4 * locipar.npsf)
             rmax = int(flux.shape[1] // 2 - deltar - 50)
             locipar.rmax = min(locipar.rmax, rmax)
-            
+                        
             if dr_rms is None:
                 nf, dy, dx = flux.shape
                 fluxmed = np.median(flux, axis=0)[dy // 2 - 100:dy // 2 + 101,
@@ -226,7 +237,7 @@ def main():
         
             if locipar.feedback == 0:
                 partial_sub = loci.loci(flux, pa, locipar, mem, mode='LOCI',
-                                        pca_arr=pca_arr, r_ex=dr_rms, corr=corr,
+                                        pca_arr=None, r_ex=dr_rms, corr=corr,
                                         method='matrix', do_partial_sub=True,
                                         sub_dir=exec_path)
                 
@@ -293,7 +304,7 @@ def main():
 
         if igroup == 0:
             newhead = utils.makeheader(flux[0], pyf.open(fullframe)[0].header,
-                                       filesetup, adipar, locipar)
+                                       full_framelist, adipar, locipar)
             
             flux = parallel._rotate_recenter(filesetup, flux, theta=pa)
             fluxtmp, noise = combine.meanmed(flux)
@@ -320,6 +331,8 @@ def main():
     if partial_sub is not None:
         partial_sub = utils.arr_resize(partial_sub, newdim=fluxbest.shape[0]).astype(np.float32)
         fluxbest /= partial_sub
+        out = pyf.HDUList(pyf.PrimaryHDU(partial_sub))
+        out.writeto('partial_sub2.fits', clobber=True)
         
     x, y = np.meshgrid(np.arange(7) - 3, np.arange(7) - 3)
     window = (x**2 + y**2 < 2.51**2) * 1.0

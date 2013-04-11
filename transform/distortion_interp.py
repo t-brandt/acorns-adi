@@ -15,7 +15,7 @@ import warnings
 
 def distortion_interp_flux(flux, y, x):
 
-    flux[:, :] = scipy.ndimage.map_coordinates(flux, [y, x], order=1)
+    flux[:, :] = scipy.ndimage.map_coordinates(flux, [y, x], order=3)
 
     return flux
 
@@ -23,7 +23,7 @@ def distortion_interp_frame(frame, y, x, storeall=True, output_dir="."):
 
     frame_ds = re.sub(".fits", "_ds.fits", frame)
     flux = pyf.open(frame_ds)[-1].data
-    flux_dw = scipy.ndimage.map_coordinates(flux, [y, x], order=1)
+    flux_dw = scipy.ndimage.map_coordinates(flux, [y, x], order=3)
         
     header = pyf.open(frame_ds)[0].header
     flux_hdu = pyf.PrimaryHDU(flux_dw, header)

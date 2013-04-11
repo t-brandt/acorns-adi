@@ -55,10 +55,10 @@ def destripe(frame, flat, hotpix, write_files, output_dir, bias_only,
         fluxfits = pyf.open(frame, "readonly")        
         header = fluxfits[0].header
         try:
-            ncoadd = header['COADD']
+            ncoadd = int(header['COADD'])
         except:
             try:
-                ncoadd = header['COADDS']
+                ncoadd = int(header['COADDS'])
             except:
                 ncoadd = 1
         flux = fluxfits[-1].data.astype(np.float32)
@@ -141,7 +141,7 @@ def destripe(frame, flat, hotpix, write_files, output_dir, bias_only,
                 # 3.5 * sqrt(2*ln(2)) ~= 4.1 sigma.
                 #############################################################
                 
-                mask = fluxresid > 4.5 * sigval
+                mask = fluxresid > 5.5 * sigval
                 mask[:10] = 0
                 mask[-10:] = 0
                 mask[:, :10] = 0

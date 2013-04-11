@@ -101,6 +101,7 @@ def fit_centroids(filesetup, flux, pa, method='moffat', storeall=True,
                 del filesetup.framelist[i]
         pickle.dump(filesetup, open('./dirinfo', 'w'))
         centers = centers[igood]
+        #print centers
         pa = pa[igood]
         nframes = len(igood)
         if flux is not None:

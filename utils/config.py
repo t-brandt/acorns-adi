@@ -58,7 +58,7 @@ def config(nframes, framesize):
 
     storeall = False
     
-    if datasize * 100 / mem < 40:
+    if datasize * 100 / mem < 20:
         storeall = True
         print "    --> You have enough RAM to store all data."
         print "        The pipeline will not need to write all intermediate files."

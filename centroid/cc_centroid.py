@@ -127,7 +127,7 @@ def cc_centroid(refimage, image=None, frame=None, usemask=True, side=None):
             imax, jmax = [int(yc), int(xc)]
         except:
             return None # failure
-        
+
     ####################################################################
     # Calculate the typical saturation radius; cap at 700 mas
     ####################################################################
@@ -177,7 +177,10 @@ def cc_centroid(refimage, image=None, frame=None, usemask=True, side=None):
     refimage2 = np.reshape(refimage, (nref, -1))
 
     sub_istd = np.ndarray(refimage2.shape)
-    istd = np.sqrt(mask / (image + 200))
+    if usemask:
+        istd = np.sqrt(mask / (np.abs(image) + 200))
+    else:
+        istd = np.sqrt(1 / (np.abs(image) + 200))
 
     ####################################################################
     # Produce an nxn map of chi2 as a function of offset.

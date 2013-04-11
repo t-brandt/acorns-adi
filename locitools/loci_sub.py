@@ -132,6 +132,7 @@ def loci_sub(annulus_opt, annulus_sub, pa, minsep, r0, pcaopt=None,
                 opt_ref = np.extract(np.abs(pa_full[corr[iframe]] -
                                             pa_full[iframe]) * r0 > minsep,
                                      corr[iframe])
+                optframes = opt_ref
                 
             ##################################################################
             # Solve the linear system using the user-input method, either
