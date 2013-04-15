@@ -159,7 +159,7 @@ def main():
             out = pyf.HDUList(pyf.PrimaryHDU(flux[i].astype(np.float32),
                                              pyf.open(filesetup.framelist[i])[0].header))
             rootfile = re.sub('.*/', '', filesetup.framelist[i])
-            out.writeto(filesetup.reduce_dir + '/' + re.sub('.fits', '_rp.fits', rootfile), clobber=True)
+            out.writeto(filesetup.reduce_dir + '/' + re.sub('.fits', '_r.fits', rootfile), clobber=True)
         if dr_rms is None:
             dr_rms = 20
     elif False:
@@ -202,8 +202,8 @@ def main():
 
         if ngroup > 1:
             filesetup.framelist = full_framelist[igroup::ngroup]
-            if np.all(utils.check_files(filesetup, ext="_rp")):
-                flux = utils.read_files(filesetup, ext="_rp")
+            if np.all(utils.check_files(filesetup, ext="_r")):
+                flux = utils.read_files(filesetup, ext="_r")
             else:
                 print "Unable to read recentered files for LOCI."
                 sys.exit()
